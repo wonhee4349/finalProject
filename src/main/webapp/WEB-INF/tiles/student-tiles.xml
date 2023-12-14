@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC
+       "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN"
+       "http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+<tiles-definitions>
+	<!-- controller가 선택할 view정보 : .defintion_name.tiles -->
+	<definition name="abstractDef" template="/WEB-INF/view/template.jsp">
+		<put-attribute name="title" value="Company 305" />
+		<put-attribute name="preScript" value="/includee/preScript.jsp" />
+		<put-attribute name="headerMenu" value="/includee/headerMenuStudent.jsp" />
+		<put-attribute name="leftMenu" value="/includee/leftMenuStudent.jsp" />
+		<put-attribute name="footer" value="/includee/footer.jsp" />
+		<put-attribute name="postScript" value="/includee/postScript.jsp" />
+	</definition>
+<!-- 	<definition name="index" extends="abstractDef" > -->
+<!-- 		<put-attribute name="content" value="/WEB-INF/view/indexStudent.jsp" /> -->
+<!-- 	</definition> -->
+
+	<definition name="student/mail/*" extends="abstractDef">
+	    <put-attribute name="content" value="/WEB-INF/view/mail/{1}.jsp" />
+	</definition>
+<!-- 	<definition name="student/ajax/mail/*" extends="abstractDef">
+	    <put-attribute name="content" value="/WEB-INF/view/ajax/mail/{1}.jsp" />
+	</definition> -->
+	<definition name="student/**" extends="abstractDef">
+	    <put-attribute name="content" value="/WEB-INF/view/student/{1}.jsp" />
+	</definition>
+	
+
+
+
+<!-- 	<definition name="board/*" extends="abstractDef" > -->
+<!-- 		<put-attribute name="content" value="/WEB-INF/jsp/board/{1}.jsp" /> -->
+<!-- 	</definition> -->
+		
+</tiles-definitions>

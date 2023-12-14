@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.course.mapper.ProfessorCourseMapper">
+	
+	<sql id="searchCourse">
+		<where>
+			<if
+				test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				<choose>
+					<when test="simpleCondition.searchType eq 'courseNm'">
+						INSTR(COURSE_NM,#{simpleCondition.searchWord}) > 0
+					</when>
+					<when test="simpleCondition.searchType eq 'subjctNm'">
+						INSTR(SUBJCT_NM,#{simpleCondition.searchWord}) > 0
+					</when>
+					<when test="simpleCondition.searchType eq 'clgNm'">
+						INSTR(CLG_NM,#{simpleCondition.searchWord}) > 0
+					</when>
+					<otherwise>
+						INSTR(COURSE_NM,#{simpleCondition.searchWord}) > 0
+						OR
+						INSTR(SUBJCT_NM,#{simpleCondition.searchWord}) > 0
+						OR
+						INSTR(CLG_NM,#{simpleCondition.searchWord}) > 0
+					</otherwise>
+				</choose>
+			</if>
+		</where>
+	</sql>
+
+	<select id="courseSelectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+			FROM(
+				SELECT DISTINCT E.*
+				FROM(
+				    SELECT ROW_NUMBER() OVER(ORDER BY T.SUBJCT_NO) RNUM,T.*
+				    FROM(
+				        SELECT   C.COURSE_NO
+				               , SUBSTR(C.COURSE_NO,1,1) CLG_NO
+				               , C.COURSE_NM
+				               , COURSE_PNT
+				               , (SELECT CC.COM_CODE_NM FROM com_code CC WHERE CC.com_code_grp = 'SEC014' AND CC.COM_CODE = C.COMPL_SE) COMPL_SE
+				               , (SELECT B.CLG_NM FROM COLLEGE B WHERE B.CLG_NO = SUBSTR(C.COURSE_NO,1,1)) CLG_NM
+				               , S.SUBJCT_NM
+				               , S.SUBJCT_NO
+				        FROM COURSE C, SUBJECT S 
+				        WHERE S.SUBJCT_NO = C.SUBJCT_NO
+				     ) T
+				)E
+			 )
+	</select>
+	
+	
+<!-- 	<resultMap type="kr.ac.usu.course.vo.CourseVO" id="courseMap" autoMapping="true"> -->
+<!-- 		<id property="courseNo" column="COURSE_NO" /> -->
+<!-- 	</resultMap> -->
+	<select id="selectCourseList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultType="kr.ac.usu.course.vo.CourseVO">
+		SELECT DISTINCT E.*
+		FROM(
+		    SELECT ROW_NUMBER() OVER(ORDER BY T.SUBJCT_NO) RNUM,T.*
+		    FROM(
+		        SELECT   C.COURSE_NO
+		               , SUBSTR(C.COURSE_NO,1,1) CLG_NO
+		               , C.COURSE_NM
+		               , COURSE_PNT
+		               , (SELECT CC.COM_CODE_NM FROM com_code CC WHERE CC.com_code_grp = 'SEC014' AND CC.COM_CODE = C.COMPL_SE) COMPL_SE
+		               , (SELECT B.CLG_NM FROM COLLEGE B WHERE B.CLG_NO = SUBSTR(C.COURSE_NO,1,1)) CLG_NM
+		               , S.SUBJCT_NM
+		               , S.SUBJCT_NO
+		        FROM COURSE C, SUBJECT S 
+		        WHERE S.SUBJCT_NO = C.SUBJCT_NO
+		        ) T
+		        <include refid="searchCourse"/>
+		    )E
+		    <![CDATA[
+				WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+			]]>
+	</select>
+	
+	<!-- 교수 강의 수강학생목 리스트 -->
+	<resultMap type="kr.ac.usu.course.vo.CourseVO" id="courseMap" autoMapping="true">
+		<id property="courseNo" column="COURSE_NO"/>
+		<association property="courseRequest" javaType="kr.ac.usu.course.vo.CourseRequestVO" autoMapping="true">
+			<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true"/>
+		</association>
+	</resultMap>
+	<select id="selectCourse" parameterType="String" resultMap="courseMap">
+		WITH T AS(
+		    SELECT COURSE_NO
+		         , SUBSTR(A.COURSE_NO,1,1) CLG_NO
+		         , A.COURSE_NM
+		         , A.COURSE_PNT
+		         , (SELECT CC.COM_CODE_NM FROM com_code CC WHERE CC.com_code_grp = 'SEC014' AND CC.COM_CODE = A.COMPL_SE) COMPL_SE     
+		         , (SELECT B.CLG_NM FROM COLLEGE B WHERE B.CLG_NO = SUBSTR(A.COURSE_NO,1,1)) CLG_NM
+		         , (SELECT F.FCLTS_NM FROM facilities F WHERE F.FCLTS_NO = S.SUBJCT_OFFM) FCLTS_NM
+                 , (SELECT B.BULD_NM FROM BUILDING B WHERE B.BULD_NO = SUBSTR(S.SUBJCT_OFFM,0,2)) BULD_NM
+		         , S.SUBJCT_NM
+		         , S.SUBJCT_TELNO
+		         , A.SUBJCT_NO
+                 ,C.COURSE_REQST_NO
+                 ,C.COURSE_REQST_NM
+                 ,C.COURSE_REQST_DATE
+                 ,C.PRFSOR_NO
+                 ,C.CONFM_SE
+                 ,C.COURSE_REQST_RETURN
+                 ,P.PRFSOR_NM
+                 ,P.PRFSOR_TELNO
+                 ,P.PRFSOR_RETIRE
+                 ,P.PRFSOR_EMPLYN_FORM
+                 ,(SELECT CC.COM_CODE_NM FROM com_code CC WHERE CC.com_code_grp = 'SEC001' AND CC.COM_CODE = P.SEXDSTN_SE) SEXDSTN_SE 
+                  
+		    FROM   COURSE A, SUBJECT S, COURSE_REQUEST C , PROFESSOR P
+		    WHERE  A.COURSE_NO = SUBSTR(COURSE_REQST_NO,2,5) AND S.SUBJCT_NO = C.SUBJCT_NO AND P.PRFSOR_NO = C.PRFSOR_NO
+		)
+		SELECT T.*
+        FROM T 
+        WHERE COURSE_NO = #{courseNo}
+	</select>
+	
+	<!-- 교과목 개설신청 내역을 보기위한 레코드수 -->
+	<sql id="searchCourseRequest">
+		<where>
+			<if
+				test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				<choose>
+					<when test="simpleCondition.searchType eq 'courseNm'">
+						INSTR(COURSE_NM,#{simpleCondition.searchWord}) > 0
+					</when>
+					<when test="simpleCondition.searchType eq 'subjctNm'">
+						INSTR(SUBJCT_NM,#{simpleCondition.searchWord}) > 0
+					</when>
+					<when test="simpleCondition.searchType eq 'clgNm'">
+						INSTR(CLG_NM,#{simpleCondition.searchWord}) > 0
+					</when>
+					<otherwise>
+						INSTR(COURSE_NM,#{simpleCondition.searchWord}) > 0
+						OR
+						INSTR(SUBJCT_NM,#{simpleCondition.searchWord}) > 0
+						OR
+						INSTR(CLG_NM,#{simpleCondition.searchWord}) > 0
+					</otherwise>
+				</choose>
+			</if>
+		</where>
+	</sql>
+	
+	
+	<select id="courseRequestSelectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM (
+			SELECT B.*
+			FROM(
+			SELECT ROW_NUMBER() OVER(ORDER BY PRFSOR_NO) RNUM, A.*
+				FROM(
+					SELECT P.PRFSOR_NO
+					        ,C.COURSE_REQST_NO
+					        ,C.COURSE_REQST_NM
+					        ,C.COURSE_PNT
+					        ,(SELECT B.COM_CODE_NM FROM com_code B WHERE B.com_code_grp = 'SEC014' AND B.COM_CODE = C.COMPL_SE) COMPL_SE
+					        ,C.SUBJCT_NO
+					        ,C.COURSE_REQST_DATE
+					        ,(SELECT D.COM_CODE_NM FROM com_code D WHERE D.com_code_grp = 'SEC013' AND D.COM_CODE = C.CONFM_SE) CONFM_SE
+					        ,C.COURSE_REQST_RETURN
+					        ,S.SUBJCT_NM
+					        ,S.SUBJCT_TELNO
+					        ,(SELECT W.CLG_NM FROM COLLEGE W, BUILDING E WHERE W.CLG_NO =E.CLG_NO AND S.CLG_NO=W.CLG_NO) CLG_NM
+					        ,(SELECT E.BULD_NM FROM COLLEGE W, BUILDING E WHERE W.CLG_NO =E.CLG_NO AND S.CLG_NO=W.CLG_NO) BULD_NM
+					FROM COURSE_REQUEST C INNER JOIN PROFESSOR P ON (C.PRFSOR_NO = P.PRFSOR_NO)
+					                      INNER JOIN SUBJECT S ON (C.SUBJCT_NO = S.SUBJCT_NO)
+					WHERE P.PRFSOR_NO = #{detailCondition.prfsorNo}
+			) A
+			<include refid="searchCourseRequest"/>
+			) B
+		)
+	</select>
+	
+	
+	<resultMap type="kr.ac.usu.course.vo.CourseRequestVO" id="courseRequestMap" autoMapping="true">
+		<id property="courseReqstNo" column="COURSE_REQST_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true" />
+		<association property="subjectvo" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true" />
+	</resultMap>
+	<!-- 교과목 개설신청 -->
+	<select id="selectCourseRequestList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="courseRequestMap">
+		SELECT DISTINCT B.*
+			FROM(
+			SELECT ROW_NUMBER() OVER(ORDER BY PRFSOR_NO) RNUM, A.*
+				FROM(
+					SELECT P.PRFSOR_NO
+					        ,C.COURSE_REQST_NO
+					        ,C.COURSE_REQST_NM
+					        ,C.COURSE_PNT
+					        ,(SELECT B.COM_CODE_NM FROM com_code B WHERE B.com_code_grp = 'SEC014' AND B.COM_CODE = C.COMPL_SE) COMPL_SE
+					        ,C.SUBJCT_NO
+					        ,C.COURSE_REQST_DATE
+					        ,(SELECT D.COM_CODE_NM FROM com_code D WHERE D.com_code_grp = 'SEC013' AND D.COM_CODE = C.CONFM_SE) CONFM_SE
+					        ,C.COURSE_REQST_RETURN
+					        ,S.SUBJCT_NM
+					        ,S.SUBJCT_TELNO
+					        ,(SELECT W.CLG_NM FROM COLLEGE W, BUILDING E WHERE W.CLG_NO =E.CLG_NO AND S.CLG_NO=W.CLG_NO) CLG_NM
+					        ,(SELECT E.BULD_NM FROM COLLEGE W, BUILDING E WHERE W.CLG_NO =E.CLG_NO AND S.CLG_NO=W.CLG_NO) BULD_NM
+					FROM COURSE_REQUEST C INNER JOIN PROFESSOR P ON (C.PRFSOR_NO = P.PRFSOR_NO)
+					                      INNER JOIN SUBJECT S ON (C.SUBJCT_NO = S.SUBJCT_NO)
+					WHERE P.PRFSOR_NO = #{detailCondition.prfsorNo}
+			) A
+			<include refid="searchCourseRequest"/>
+			ORDER BY COURSE_REQST_NM DESC
+			) B
+			<![CDATA[
+				WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+			]]>			
+	</select>
+	
+	<resultMap type="kr.ac.usu.course.vo.CourseRequestVO" id="courseRequestViewMap" autoMapping="true">
+		<id property="courseReqstNo" column="COURSE_REQST_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true" />
+		<association property="subjectvo" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true" />
+	</resultMap>
+	<!-- 교과목 개설신청 상세정보 -->
+	<select id="selectCourseRequest" parameterType="kr.ac.usu.course.vo.CourseRequestVO" resultMap="courseRequestViewMap">
+		
+			SELECT A.*
+				FROM(
+					SELECT P.PRFSOR_NO
+					        ,C.COURSE_REQST_NO
+					        ,C.COURSE_REQST_NM
+					        ,C.COURSE_PNT
+					        ,(SELECT B.COM_CODE_NM FROM com_code B WHERE B.com_code_grp = 'SEC014' AND B.COM_CODE = C.COMPL_SE) COMPL_SE
+					        ,C.SUBJCT_NO
+					        ,C.COURSE_REQST_DATE
+					        ,(SELECT D.COM_CODE_NM FROM com_code D WHERE D.com_code_grp = 'SEC013' AND D.COM_CODE = C.CONFM_SE) CONFM_SE
+					        ,C.COURSE_REQST_RETURN
+					        ,S.SUBJCT_NM
+					        ,S.SUBJCT_TELNO
+					        ,(SELECT W.CLG_NM FROM COLLEGE W, BUILDING E WHERE W.CLG_NO =E.CLG_NO AND S.CLG_NO=W.CLG_NO) CLG_NM
+					        ,(SELECT E.BULD_NM FROM COLLEGE W, BUILDING E WHERE W.CLG_NO =E.CLG_NO AND S.CLG_NO=W.CLG_NO) BULD_NM
+
+					FROM COURSE_REQUEST C INNER JOIN PROFESSOR P ON (C.PRFSOR_NO = P.PRFSOR_NO)
+					                      INNER JOIN SUBJECT S ON (C.SUBJCT_NO = S.SUBJCT_NO)
+					WHERE P.PRFSOR_NO = #{prfsorNo}
+						  AND C.COURSE_REQST_NO = #{courseReqstNo}
+			) A
+			ORDER BY COURSE_REQST_NM DESC
+	
+	</select>
+	
+	
+	<select id="selectComCode" parameterType="String" resultType="kr.ac.usu.user.vo.ComCodeVO">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	
+	<resultMap type="kr.ac.usu.subject.vo.SubjectVO" id="subjectMap" autoMapping="true">
+		<id property="subjctNo" column="SUBJCT_NO"/>
+		<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true" />
+	</resultMap>
+	<select id="selectSubjectList" resultMap="subjectMap">
+	
+		SELECT	  DISTINCT
+				  S.SUBJCT_NO
+                , S.SUBJCT_NM
+                , C.CLG_NM
+                , C.CLG_NO
+		FROM SUBJECT S INNER JOIN COLLEGE C ON (S.CLG_NO = C.CLG_NO)
+	</select>
+	
+	
+	
+	<!-- 교과목 개설신청 -->
+	<insert id="insertCourseRequest" parameterType="kr.ac.usu.course.vo.CourseRequestVO">
+		<selectKey order="BEFORE" resultType="String" keyProperty="courseReqstNo">
+			SELECT 
+			    'R' || #{clgNo,jdbcType=VARCHAR} || LPAD(NVL(TO_NUMBER(MAX(SUBSTR(A.COURSE_REQST_NO, 3))), 0) + 1, 3, '0')
+			FROM 
+			    COURSE_REQUEST A
+			WHERE 
+			    A.COURSE_REQST_NO LIKE 'R'||#{clgNo,jdbcType=VARCHAR}||'%'
+		</selectKey>
+			INSERT INTO COURSE_REQUEST (
+			    COURSE_REQST_NO,
+			    COURSE_REQST_NM,
+			    COURSE_PNT,
+			    COMPL_SE,
+			    SUBJCT_NO,
+			    COURSE_REQST_DATE,
+			    PRFSOR_NO,
+			    CONFM_SE,
+			    COURSE_REQST_RETURN
+			) VALUES (
+			    #{courseReqstNo,jdbcType=VARCHAR}
+			    ,#{courseReqstNm,jdbcType=VARCHAR}
+			    ,#{coursePnt,jdbcType=VARCHAR}
+			    ,#{complSe,jdbcType=VARCHAR}
+			    ,#{subjctNo,jdbcType=VARCHAR}
+			    ,TO_CHAR(SYSDATE,'YY/MM/DD')
+			    ,#{prfsorNo,jdbcType=VARCHAR}
+			    ,'01'
+			    ,#{courseReqstReturn,jdbcType=VARCHAR}
+			)
+	</insert>
+	
+</mapper>
+

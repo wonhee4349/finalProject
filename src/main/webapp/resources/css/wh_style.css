@@ -1,0 +1,278 @@
+@charset "UTF-8";
+.certificate_wrap{width:100%; padding:20px; height:1200px;  border:3px solid #121212;  padding:20px;}
+.certificate_select_wrap{paddin:10px;}
+.sub_tit04{font-size:60px; text-align:center; color:#000; margin:50px 0;font-weight:bold;  font-family: 'Jeju Myeongjo', serif; }
+.table_style05{width:80%;text-align:center;vertical-align: middle;border: 1px solid #a5a5a5;margin-bottom: 217px; margin:0 auto}
+.table_style05 th{font-size: 30px;font-weight: 300;color: #000;vertical-align: middle;padding: 8px 0;border: 1px solid #a5a5a5;} 
+.table_style05 td{
+	font-family: 'Pretendard-Regular';
+	font-weight: 100;
+	border:1px solid #a5a5a5;
+	padding: 6px 20px;
+	font-size: 26px;
+	
+} 
+.logo_wrap02{
+    margin: 0 auto;
+    width: 417px;
+    position: relative;
+    top: 100px;
+    height: 100px;
+    }
+.logo_wrap02 .logoimg{
+    width: 133px;
+    height: 62px;
+    float: left;
+    margin-right: 11px;
+    margin-top: 14px;
+}
+.logo_wrap02 .logoimg img{width:100%;}
+.logo_wrap02 .logotxt{
+    font-family: 'DNFForgedBlade';
+    font-size: 59px;
+    float: left;
+    position: relative;
+    margin-top: 55px;
+    letter-spacing: 0px;
+    color: #000;
+    font-weight: 700;
+    text-align: center;
+    line-height: 32px;
+    }
+.logo_wrap02 .logotxt span{font-size: 30px;
+    letter-spacing: 8.5px;
+    font-weight: 100;}
+
+.text01{font-size:40px; width:100%;text-align:center;font-family: 'Jeju Myeongjo', serif;font-weight:bold;color:#000;margin-top:100px;margin-bottom: 50px;}
+.radio_box {display: inline-block;display: inline;zoom: 1;position: relative;padding-left: 25px;margin-right: 26px;cursor: pointer;font-size: 14px;-webkit-user-select: none;-moz-user-select: none;-ms-user-select: none;user-select: none;}
+
+/* 기본 라디오 버튼 숨기기 */
+.radio_box input[type="radio"] { display: none; }
+
+/* 선택되지 않은 라디오 버튼 스타일 꾸미기 */
+.on {width: 22px;height: 22px;background: #fff;border-radius: 50%;position: absolute;margin-right: 11px;top: 2px;left: 0;border: 1px solid #a5c4d5;}
+
+/* 선택된 라디오 버튼 스타일 꾸미기 */
+.radio_box input[type="radio"]:checked + .on {background: #3288ff;}
+.on:after { content: ""; position: absolute; display: none; }
+.radio_box input[type="radio"]:checked + .on:after { display: block; }
+.on:after { width: 10px; height: 10px; background: #fff; border-radius: 50%; position: absolute; left: 5px; top: 5px; }
+
+.certificate_select_wrap span{font-size: 18px;}
+.cert_tit{font-size: 21px;color:#000;margin-bottom:10px;font-weight: 500;}
+.cert_tit i{font-size:16px;color: #0986e9;margin-right: 10px;}
+.certificate_select_wrap label{color: #333;font-size: 19px;padding-left: 35px;}
+.cert_box{width:100%;margin-bottom: 7px;}
+
+.s_option02 .s_option{width: auto;float: left;height: 44px;margin-right: 5px;display: flex;}
+.s_option02 .select-container {
+            width: 128px;
+            position: relative;
+        }
+
+        /* Style the select box itself */
+.s_option02 .custom-select02 {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 180px;
+            padding: 6px;
+            border: 1px solid #ced5e9;
+            border-radius: 4px;
+            background-color: #fff;
+            cursor: pointer;
+            text-align: center;
+            height: 49px;
+            line-height: 32px;
+            position: relative;
+            top: 8px;
+        }
+
+        /* Style the select arrow */
+.s_option02 .select-arrow {
+            position: relative;
+            float: right;
+            top: -25px;
+            left: 43px;
+        }
+
+        /* Style when the select box is open */
+.s_option02 .custom-select02:active,
+.s_option02 .custom-select02:focus {
+            border-color: #007bff; /* Change border color when active/focused */
+        }
+
+        /* Style the options */
+.s_option02 .custom-select02 option {
+            padding: 10px;
+        }
+.t_if_x {
+	margin-bottom:2rem;
+	color:#3d3d3d;
+	font-size:1.06rem;
+	background:url(/resources/img/tif_x_bg.png) repeat-x left bottom;
+	padding:0 0 1.3rem 0;
+	font-weight:500;
+	line-height:1.8rem;
+	font-family: 'nanumsquare';
+}
+
+
+.line_table {
+	border-top:1px solid #9e9ec7;
+	border-bottom:1px solid #999;
+	line-height:1.7rem;
+	margin-bottom:1rem;
+	width:100%;
+	font-size:17px;
+}
+
+.line_table tr:first-child th {
+	border-top:none;
+}
+.line_table tr:first-child td {
+	border-top:none;
+}
+.line_table th {
+	background:#f3f3f3;
+	color:#3d3d3d;
+	font-weight:500;
+	line-height:57px;
+	height:60px;
+	border-top:1px solid rgba(0,0,0,0.1);
+	text-align:center;
+}
+
+.line_table td {
+	border-top:1px solid rgba(0,0,0,0.1);
+	text-align:center;
+	line-height: 13px;
+	height: 60px;
+	font-size:17px;
+	padding:0 1rem;
+}
+.payment_radio{height:32px;}
+.bankSelect{width:100%; }
+.line_table td button{height: 31px;line-height: 20px !important;}
+.blue_box02{width: 100%;border-radius: 0;background: #f6f9ff;height: 100px;font-size: 20px;color: #28619f;padding: 33px;}
+.border{border:1px solid #f2f2f2; margin:20px 0}
+.down_box{width: 100%;border-radius: 0;background: #f6f9ff;height: 167px;font-size: 20px;color: #28619f;padding: 33px;text-align: center;}
+.mb50{margin-bottom:50px;}
+.mt-50{margin-top:50px;}
+.btn_wrap{width:100%; height:70px;}
+.ht800{min-height:800px !important;}
+
+.btn-down{
+	color: #fff;
+	background-color: #304379;
+	border-color: #253955;
+	padding: 10px 37px;
+	border-radius: 0;
+	margin-top: 12px;
+	}
+.t_if_x {
+	margin-bottom:2rem;
+	color:#3d3d3d;
+	font-size:1.06rem;
+	border-image:url(/img/tif_x_bg.png) repeat-x left bottom;
+	padding:0 0 1.3rem 0;
+	font-weight:500;
+	line-height:1.8rem;
+	font-family: 'nanumsquare';
+}	
+
+
+.certificate_wrap {
+    position: absolute;
+    left: -9999px;
+    top: -9999px;
+}
+
+/*메인*/
+
+.fc-h-event{border:none !important;}
+.fc-daygrid-event{border-radius:0 !important;}
+.userName {font-size: 25px;}
+.list_item_wrap{width:100%;height:281px;margin-top: 0;}
+.list_item{
+position: relative;
+    width: calc(33.333% - 12px);
+    padding-bottom: calc(33.333% - 12px);
+    background: #ffffff;
+    border-radius: 15px;
+    margin-right: 18px;
+    transition: .7s;
+    box-shadow: 0 .15rem 1.75rem 0 rgba(58,59,69,.15)!important;
+
+}
+
+.list_item{margin-top: 40px;margin-bottom:60px;position: relative;width: calc(32.333% - 12px);padding-bottom: calc(31.333% - 12px);background: #ffffff;border-radius: 15px;margin-right: 28px;color: #000;float: left;transition: .7s;box-shadow: 0 .15rem 1.75rem 0 rgba(58,59,69,.15)!important;}
+
+.list_item a{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 31px 20px 14px
+}
+
+.bg01{background:#6199ed; color:#fff;}
+.bg02{background:#0abfbb; color:#fff;}
+.list_item .icon{float:right; position:relative; }
+.list_item:last-child{margin-right:0;}
+.arrow{
+    position: relative;
+    width: 37px;
+    height: 23px;
+    border-radius: 50vh;
+    background: #f3f3f3;
+}
+.list_item .tit{font-size:20px;}
+
+.arrow:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url(/resources/img/btn_arrow.png) no-repeat center;
+}
+.bg-staff{background:#3f6ad6}
+.card-header02{font-size: 18px;padding: 10px 20px;}	
+.card-header02 p{color: #2c3e50;font-size: 23px;width: 90px;float: left;font-weight: 600;}
+.card-header02 span{color: #c3c3c3;position: relative;top: 3px;font-weight: 100;}
+.ht400{height:400px;}
+
+
+.mail_top_wrap{width:30%;float:left;margin-top: 10px;}
+.class_list_wrap02{list-style: none;width:100%;float:left;padding: 0;}  
+.class_list_wrap02 .list_top{border: none;height: 37px;}
+.class_list_wrap02 .list_top button{border-radius: 100px;color: #fff;padding: 8px 21px;}
+
+.class_list_wrap02 button{display:block;float:left;min-width:100px;/* border: 1px solid #3664eb; */padding: 6px;text-align:center;color: #000;border-radius:100px;}  
+.class_list_wrap02 button:first-child{margin-right: 6px;}  
+.class_list_wrap02 button.on{background: #3664eb; color:#fff;}
+.class_list_wrap02 .tab_contents{overflow:hidden;}
+.border_none{border:none !important;}
+.scroll_none{overflow:hidden !important;}
+.pd-0{padding:0 !important;}
+.card02{
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    word-wrap: break-word;
+    background-color: #fff;
+    background-clip: border-box;
+    border-radius: .35rem;
+    margin-top: 40px;
+    box-shadow: 0 0.15rem 1.75rem 0 rgb(230 235 249);
+    padding:40px 20px;	
+	
+}
+

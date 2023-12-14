@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.facilities.mapper.StaffFacilitiesListMapper">
+
+<resultMap type="kr.ac.usu.facilities.vo.BuildingVO" id="buildingMap" autoMapping="true">
+		<id property="buldNo" column="BULD_NO"/>
+		<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true" />
+	</resultMap>
+
+<resultMap type="kr.ac.usu.facilities.vo.FacilitiesVO" id="facilitiesMap" autoMapping="true">
+		<id property="fcltsNo" column="FCLTS_NO"/>
+		<association property="building" javaType="kr.ac.usu.facilities.vo.BuildingVO" autoMapping="true"/>
+	</resultMap>
+
+   <sql id="searchPro">
+     WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.fcltsNm)">
+			AND INSTR(FCLTS_NM, #{detailCondition.fcltsNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.buldNo)">
+			AND INSTR(BULD_NO, #{detailCondition.buldNo}) > 0
+		</if>
+		
+   </sql>
+
+<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+	SELECT COUNT(*)
+	FROM 
+		(<include refid="listFromFrag" />)
+	<include refid="searchPro"/>
+</select>
+
+	<sql id="listFromFrag">
+  SELECT
+    F.FCLTS_NO,
+    F.FCLTS_NM,
+    F.FCLTS_NMPR,
+    F.FCLTS_PURPS,
+    B.BULD_NO,
+    B.BULD_NM
+FROM
+    FACILITIES F
+JOIN
+    BUILDING B ON F.BULD_NO = B.BULD_NO
+    ORDER BY B.BULD_NO,F.FCLTS_NM
+	</sql>
+	
+	<select id="selectFacilitiesList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="facilitiesMap">
+	SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchPro" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}			
+	    ]]>
+	</select>
+	
+	<select id="selectFacilities" resultType="kr.ac.usu.facilities.vo.FacilitiesVO" parameterType="string" resultMap="facilitiesMap">
+
+  SELECT
+	ROWNUM RNUM
+    ,F.FCLTS_NO,
+    F.FCLTS_NM,
+    F.FCLTS_NMPR,
+    F.FCLTS_PURPS,
+    B.BULD_NO,
+    B.BULD_NM
+FROM
+    FACILITIES F
+JOIN
+    BUILDING B ON F.BULD_NO = B.BULD_NO
+  WHERE
+    F.FCLTS_NO = #{fcltsNo} 
+	</select>
+	
+	<insert id="insertFacilities" parameterType="kr.ac.usu.facilities.vo.FacilitiesVO">
+		<selectKey keyProperty="fcltsNo" order="BEFORE" resultType="String">
+			SELECT
+				#{buldNo}||SUBSTR(#{fcltsNm},1,3)
+			FROM
+				DUAL
+		</selectKey>
+    /* kr.ac.usu.facilities.mapper.FacilitiesMapper.insertFacilities */
+    INSERT INTO FACILITIES (
+        FCLTS_NO,
+        FCLTS_NM,
+        FCLTS_NMPR,
+        FCLTS_PURPS,
+        BULD_NO
+    ) VALUES (
+        #{fcltsNo,jdbcType=VARCHAR},
+        #{fcltsNm,jdbcType=VARCHAR},
+        #{fcltsNmpr,jdbcType=VARCHAR},      
+        #{fcltsPurps,jdbcType=VARCHAR},      
+        #{buldNo,jdbcType=VARCHAR}
+
+    )
+</insert>
+	
+	<select id="selectBuildingList" resultMap="buildingMap">
+		SELECT
+			B.BULD_NO
+			, BULD_NM
+			, CLG_NM
+		FROM
+			BUILDING B LEFT OUTER JOIN COLLEGE C ON (B.CLG_NO = C.CLG_NO)
+	</select>
+	
+	<update id="updateFacilities" parameterType="kr.ac.usu.facilities.vo.FacilitiesVO">
+	
+	UPDATE FACILITIES
+SET 
+    FCLTS_NM = #{fcltsNm, jdbcType=VARCHAR},
+    FCLTS_NMPR = #{fcltsNmpr, jdbcType=VARCHAR},
+    FCLTS_PURPS = #{fcltsPurps, jdbcType=VARCHAR},
+    BULD_NO = #{buldNo, jdbcType=VARCHAR}
+WHERE
+    FCLTS_NO = #{fcltsNo, jdbcType=VARCHAR}
+	</update>
+	
+</mapper>

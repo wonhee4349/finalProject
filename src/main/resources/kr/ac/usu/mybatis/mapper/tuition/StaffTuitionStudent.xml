@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.tuition.mapper.StaffTuitionStudentMapper">
+
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="listMap" autoMapping="true">
+		<association property="schoolRegisterHistory" javaType="kr.ac.usu.student.vo.SchoolRegisterHistoryVO" autoMapping="true" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="studentInfo" autoMapping="true">
+		<id property="stdntNo" column="STDNT_NO"/>
+		<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+			<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true" />
+		</association>
+		<collection property="scholarship" ofType="kr.ac.usu.scholarship.vo.ScholarshipVO" autoMapping="true">
+			<collection property="scholarshipStudent" ofType="kr.ac.usu.scholarship.vo.ScholarshipStudentVO" autoMapping="true" />
+		</collection>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.tuition.vo.TuitionVO" id="tuitionMap" autoMapping="true">
+		<id property="tutnNhtNo" column="TUTN_NHT_NO"/>
+		<association property="semester" javaType="kr.ac.usu.schoolaffairsschedule.vo.SemesterVO" autoMapping="true"/>
+	</resultMap>
+
+	<sql id="searchFrag">
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'stdntNm'">
+	    				INSTR(STDNT_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'stdntNo'">
+	    				INSTR(STDNT_NO, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'sknrgSttusMajor1'">
+	    				INSTR(SKNRG_STTUS_MAJOR1, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<otherwise>
+	    				INSTR(STDNT_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(STDNT_NO, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(SKNRG_STTUS_MAJOR1, #{simpleCondition.searchWord}) > 0
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="listFromFrag">
+		SELECT 
+		    A.STDNT_NO
+		    , C.SKNRG_STTUS_GRADE
+		    , B.STDNT_NM
+		    , E.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		    , G.COM_CODE_NM	SKNRGS_SE
+		FROM
+		    STUDENT A INNER JOIN STUDENT_INFORMATION B ON (A.STDNT_NO = B.STDNT_NO)
+		    INNER JOIN SCHOOL_REGISTER_STATUS C ON (A.STDNT_NO = C.STDNT_NO)
+		    LEFT OUTER JOIN GRADUATION D ON (A.STDNT_NO = D.STDNT_NO)
+		    INNER JOIN SUBJECT E ON (C.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO)
+		    INNER JOIN SCHOOL_REGISTER_HISTORY F ON (A.STDNT_NO = F.STDNT_NO)
+		    INNER JOIN COM_CODE G ON (F.SKNRGS_SE = G.COM_CODE)
+		WHERE
+		    D.STDNT_NO IS NULL
+		    AND G.COM_CODE_GRP = 'SEC009'
+		    AND (
+		        (EXTRACT(MONTH FROM SYSDATE) BETWEEN 7 AND 12 AND C.SKNRG_STTUS_GRADE != '4' AND G.COM_CODE_NM != '휴학')
+		        OR
+		        <![CDATA[
+		        (EXTRACT(MONTH FROM SYSDATE) < 7 OR EXTRACT(MONTH FROM SYSDATE) > 12 AND G.COM_CODE_NM != '휴학')			    
+		    	]]>
+		    )
+		 ORDER BY SUBSTR(A.STDNT_NO,1,4) DESC, C.SKNRG_STTUS_GRADE, A.STDNT_NO, E.SUBJCT_NM
+	</sql>
+	
+	<!-- 납부대상자 목록 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+			(<include refid="listFromFrag" />)
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectTuitionStudent" resultMap="listMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<select id="selectTuitionStudentInfo" resultMap="studentInfo" parameterType="string">
+		
+		SELECT 
+		    A.STDNT_NO
+            , B.STDNT_NM
+            , D.SUBJCT_NM SKNRG_STTUS_MAJOR1
+            , E.CLG_NM
+		FROM
+		    STUDENT A INNER JOIN STUDENT_INFORMATION B ON (A.STDNT_NO = B.STDNT_NO)
+            INNER JOIN SCHOOL_REGISTER_STATUS C ON (A.STDNT_NO = C.STDNT_NO)
+            INNER JOIN SUBJECT D ON (C.SKNRG_STTUS_MAJOR1 = D.SUBJCT_NO)
+            INNER JOIN COLLEGE E ON (D.CLG_NO = E.CLG_NO)
+        WHERE
+            A.STDNT_NO = #{studentNo}
+		
+	</select>
+	
+	<select id="seletTuitionStudentScholarshipInfo" resultMap="studentInfo" parameterType="string">
+		SELECT 
+		    A.STDNT_NO
+            , B.STDNT_NM
+            , D.SCHLSHIP_AMOUNT
+            , D.PYMNT_SE
+		FROM
+		    STUDENT A INNER JOIN STUDENT_INFORMATION B ON (A.STDNT_NO = B.STDNT_NO)
+            LEFT OUTER JOIN SCHOLARSHIP_STUDENT C ON (A.STDNT_NO = C.STDNT_NO)
+            LEFT OUTER JOIN SCHOLARSHIP D ON (C.SCHLSHIP_NO = D.SCHLSHIP_NO)
+        WHERE
+            A.STDNT_NO = #{studentNo}
+            AND D.PYMNT_SE = '01'
+            AND D.SEMSTR_NO = TO_CHAR(
+                   CASE 
+                       WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 1 AND 6 THEN sysdate
+                       WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 7 AND 12 THEN ADD_MONTHS(sysdate, 12)
+                   END, 'YYYY'
+               ) || 
+               CASE 
+                   WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 1 AND 6 THEN '2'
+                   WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 7 AND 12 THEN '1'
+               END
+	</select>
+	
+	<select id="selectTuitionSemesterInfo" resultType="kr.ac.usu.schoolaffairsschedule.vo.SemesterVO">
+		SELECT
+		    SEMSTR_YR
+		    , SEMSTR
+		FROM
+		    SEMESTER
+		    
+		WHERE SEMSTR_YR = TO_CHAR(
+		                   CASE 
+		                       WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 1 AND 6 THEN sysdate
+		                       WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 7 AND 12 THEN ADD_MONTHS(sysdate, 12)
+		                   END, 'YYYY'
+		               )
+		    AND SEMSTR = TO_CHAR(
+		               CASE 
+		                   WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 1 AND 6 THEN '2'
+		                   WHEN TO_NUMBER(TO_CHAR(sysdate, 'MM')) BETWEEN 7 AND 12 THEN '1'
+		               END
+		               )
+	</select>
+	
+	<insert id="insertTuition" parameterType="kr.ac.usu.tuition.vo.TuitionVO">
+		INSERT INTO tuition (
+		    tutn_nht_no
+		    , tutn_etrncf
+		    , tutn_tutfee
+		    , tutn_schlship
+		    , semstr_no
+		    , stdnt_no
+		) VALUES (
+		   (
+		    SELECT
+		        'T' ||
+		        SUBSTR(#{semstrNo},3,2) ||
+		        '0' || SUBSTR(#{semstrNo},5,1) ||
+		        STDNT_NO
+		    FROM
+		        STUDENT
+		    WHERE STDNT_NO = #{stdntNo}
+		   )
+		    , #{tutnEtrncf, jdbcType=NUMERIC}
+		    , #{tutnTutfee}
+		    , #{tutnSchlship, jdbcType=NUMERIC}
+		    , #{semstrNo}
+		    , #{stdntNo}
+		)
+	</insert>
+</mapper>

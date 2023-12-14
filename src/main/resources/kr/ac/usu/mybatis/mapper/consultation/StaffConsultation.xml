@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.consultation.mapper.StaffConsultationMapper">
+
+	<resultMap type="kr.ac.usu.consultation.vo.ConsultationVO" id="cnsltMap" autoMapping="true">
+		<id property="cnsltNo" column="CNSLT_NO"/>
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+				<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+			</association>
+		</association>
+		<association property="staff" javaType="kr.ac.usu.user.vo.StaffVO" autoMapping="true" />
+		<association property="request" javaType="kr.ac.usu.consultation.vo.ConsultationRequestVO" autoMapping="true" />
+	</resultMap>
+
+	<sql id="searchFrag">
+		WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.stdntNo)">
+			AND STDNT_NO = #{detailCondition.stdntNo}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.stdntNm)">
+			AND INSTR(STDNT_NM, #{detailCondition.student.stdntNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.subject.college.clgNo)">
+			AND INSTR(CLG_NO, #{detailCondition.student.subject.college.clgNo}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.sknrgSttusMajor1)">
+			AND INSTR(SUBJCT_NO, #{detailCondition.student.sknrgSttusMajor1}) > 0
+		</if>
+	</sql>
+	
+	<sql id="listFromFrag">
+		SELECT
+		    a.cnslt_no
+		    , a.stdnt_no
+		    , c.stdnt_nm
+		    , f.clg_no
+		    , f.clg_nm
+		    , e.subjct_no
+		    , e.subjct_nm sknrg_sttus_major1
+		    , g.sklstf_no
+		    , g.sklstf_nm
+		    ,  TO_CHAR(TO_DATE(a.cnslt_date)) cnslt_date
+		FROM
+		    consultation a INNER JOIN student b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN student_information c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN school_register_status d on (a.stdnt_no = d.stdnt_no)
+		    INNER JOIN subject e on (d.sknrg_sttus_major1 = e.subjct_no)    
+		    INNER JOIN college f on (e.clg_no = f.clg_no)
+		    INNER JOIN staff g on (a.cnslt_cnsltnt = g.sklstf_no)
+		WHERE
+		   SUBSTR(cnslt_no,1,3) = 'R02'
+		ORDER BY
+		    cnslt_date desc, clg_no, subjct_no
+	</sql>
+	
+	<!-- 상담 목록 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+			(<include refid="listFromFrag" />)
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectConsultationList" resultMap="cnsltMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 셀렉트박스 불러오기 /////////////////////////////////////////////////////////////// -->
+	
+	<!-- 상담사 -->
+	<select id="selectStaffList" resultType="kr.ac.usu.user.vo.StaffVO">
+		SELECT
+		    sklstf_no
+		    , sklstf_nm
+		FROM
+		    staff	
+	</select>
+	
+	<!-- 단과대, 학과 -->
+	<select id="selectCollegeList" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		SELECT
+		    CLG_NO
+		    , CLG_NM
+		FROM
+		    COLLEGE
+	</select>
+	<select id="selectSubjectList" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NO
+		FROM
+		    SUBJECT
+	</select>
+	
+	<!-- ////////////////////////////////////////////////////////////////////////////// -->
+	
+	<!-- 상담 내역 상세페이지 불러오기 -->
+	<select id="selectConsultationInfo" resultMap="cnsltMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT
+		        A.CNSLT_NO
+		        , B.SKLSTF_NM CNSLT_CNSLTNT
+		        , C.STDNT_NM
+		        , A.STDNT_NO
+		        , TO_CHAR(TO_DATE(A.CNSLT_DATE)) CNSLT_DATE
+		        , D.CNSLT_REQUST_CN
+		        , E.COM_CODE_NM TMTB_SE
+		        , A.CNSLT_DTLS
+		    FROM
+		        CONSULTATION A INNER JOIN STAFF B ON (A.CNSLT_CNSLTNT = B.SKLSTF_NO)
+		        INNER JOIN STUDENT_INFORMATION C ON (A.STDNT_NO = C.STDNT_NO)
+		        INNER JOIN CONSULTATION_REQUEST D ON (A.CNSLT_NO = D.CNSLT_NO)
+		        LEFT OUTER JOIN COM_CODE E ON (A.TMTB_SE = E.COM_CODE)
+		        
+		    WHERE
+		        E.COM_CODE_GRP = 'SEC011'
+		        AND A.CNSLT_NO = #{cnsltNo}
+		) A
+	</select>
+	
+	<update id="updateConsultationInfo" parameterType="kr.ac.usu.consultation.vo.ConsultationVO">
+		UPDATE
+			consultation
+		SET
+		    cnslt_dtls = #{cnsltDtls}
+		WHERE
+		    cnslt_no = #{cnsltNo}
+	</update>
+
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

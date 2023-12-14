@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tiles-definitions PUBLIC
+       "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN"
+       "http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+<tiles-definitions>
+	<!-- controller가 선택할 view정보 : .defintion_name.tiles -->
+	<definition name="professor" template="/WEB-INF/view/template3.jsp">
+		<put-attribute name="title" value="Company 305" />
+		<put-attribute name="preScript" value="/includee/preScript.jsp" />
+		<put-attribute name="professorHeaderMenu" value="/includee/headerMenuProfessor.jsp" />
+		<put-attribute name="professorLeftMenu" value="/includee/leftMenuProfessor.jsp" />
+		<put-attribute name="footer" value="/includee/footer.jsp" />
+		<put-attribute name="postScript" value="/includee/postScript.jsp" />
+	</definition>
+	
+	<definition name="professor/mail/*" extends="professor">
+	    <put-attribute name="content" value="/WEB-INF/view/mail/{1}.jsp" />
+	</definition>
+	<definition name="professor/**" extends="professor">
+	    <put-attribute name="content" value="/WEB-INF/view/professor/{1}.jsp" />
+	</definition>		
+</tiles-definitions>

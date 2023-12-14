@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.student.mapper.StaffFreshManMapper">
+
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="freshManList" autoMapping="true">
+		<id property="stdntNo" column="STDNT_NO"/>
+		<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true"/>
+	</resultMap>
+	
+
+	<!-- 신입생 리스트 불러오기 -->
+	<select id="selectFreshManList" resultMap="freshManList">
+		SELECT ROWNUM RNUM, A.*
+			FROM (
+				SELECT
+				    a.stdnt_no
+				    , b.stdnt_nm
+				    , d.subjct_nm sknrg_sttus_major1
+				    , SUBSTR(c.sknrg_sttus_entsch,1,2) || '/' || SUBSTR(c.sknrg_sttus_entsch,3,2) || '/' || SUBSTR(c.sknrg_sttus_entsch,5,2) sknrg_sttus_entsch
+				    , e.com_code_nm sknrg_sttus_enterence_se
+				FROM
+				    student a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+				    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+				    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+				    INNER JOIN com_code e on (c.sknrg_sttus_enterence_se = e.com_code)
+				WHERE
+				    e.com_code_grp = 'SEC012'
+				    AND SUBSTR(a.stdnt_no,1,4) = (SELECT EXTRACT(YEAR FROM SYSDATE) +1 FROM dual)
+				ORDER BY stdnt_no
+			) A
+		
+	</select>
+	
+	<!-- 셀렉트박스 불러오기 /////////////////////////////////////////////////////////////// -->
+	
+	<!-- 공통코드 -->
+	<select id="selectComCode" resultType="kr.ac.usu.user.vo.ComCodeVO" parameterType="string">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_NM
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	<!-- 단과대, 학과 -->
+	<select id="selectCollegeList" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		SELECT
+		    CLG_NO
+		    , CLG_NM
+		FROM
+		    COLLEGE
+	</select>
+	<select id="selectSubjectList" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NO
+		FROM
+		    SUBJECT
+	</select>
+	
+	<!-- ////////////////////////////////////////////////////////////////////////////// -->
+
+	<!-- 신입생 개별 등록 -->
+	<insert id="insertFreshMan" parameterType="kr.ac.usu.student.vo.FreshManVO">
+		<selectKey keyProperty="stdntNo" order="BEFORE" resultType="string">
+			SELECT
+				SUBSTR(#{sknrgSttusEntsch},1,4)
+				|| #{sknrgSttusMajor1}
+			    || LPAD(TO_CHAR(NVL(MAX(TO_NUMBER(SUBSTR(stdnt_no, 7))), 0) + 1), 2, '0') stdnt_no
+			FROM
+			    student
+			WHERE
+			    SUBSTR(stdnt_no,1,6) = SUBSTR(#{sknrgSttusEntsch},1,4) || #{sknrgSttusMajor1}
+		</selectKey>
+		
+		INSERT ALL 
+		  INTO student 
+		    (
+		        stdnt_no
+		        , stdnt_password
+		    ) VALUES 
+		    (
+		        #{stdntNo}
+		        , #{stdntNo}
+		    )
+		  INTO student_information (
+		        stdnt_no
+		        , stdnt_nm
+		        , stdnt_ihidnum1
+		        , stdnt_ihidnum2
+		        , stdnt_zip
+		        , stdnt_adres1
+		        , stdnt_adres2
+		        , stdnt_telno
+		        , nlty_se
+		        , sexdstn_se
+		        , bank_se
+		        , stdnt_acnutno
+		    ) VALUES 
+		    (
+		        #{stdntNo}
+		        , #{stdntNm}
+		        , #{stdntIhidnum1}
+		        , #{stdntIhidnum2}
+		        , #{stdntZip}
+		        , #{stdntAdres1}
+		        , #{stdntAdres2}
+		        , #{stdntTelno}
+		        , #{nltySe}
+		        , #{sexdstnSe}
+		        , #{bankSe}
+		        , #{stdntAcnutno}
+		    )
+		  INTO school_register_status 
+		    (
+		        stdnt_no
+		        , sknrg_sttus_grade
+		        , sknrg_sttus_major1
+		        , sknrg_sttus_entsch
+		        , sknrg_sttus_enterence_se
+		    ) VALUES 
+		    (
+		        #{stdntNo}
+		        , #{sknrgSttusGrade}
+		        , #{sknrgSttusMajor1}
+		        , SUBSTR(#{sknrgSttusEntsch},3,2) || SUBSTR(#{sknrgSttusEntsch},6,2) || SUBSTR(#{sknrgSttusEntsch},9,2)
+		        , #{sknrgSttusEnterenceSe}
+		    )
+		    INTO school_register_history (
+		    semstr_no
+		    , stdnt_no 
+		    , sknrg_hist_date 
+		    , sknrgs_se
+		) VALUES (
+		    SUBSTR(#{sknrgSttusEntsch},1,4) || '1'
+		    , #{stdntNo}
+		    , SUBSTR(#{sknrgSttusEntsch},3,2) || SUBSTR(#{sknrgSttusEntsch},6,2) || SUBSTR(#{sknrgSttusEntsch},9,2)
+		    , '01'
+		)
+		SELECT * FROM dual
+	</insert>
+
+	<!-- 신입생 일괄 등록 -->
+	<insert id="excelUpload" parameterType="list">
+		INSERT ALL 
+	    <foreach collection="list" item="item" separator=" ">
+		  INTO student 
+		    (
+		        stdnt_no
+		        , stdnt_password
+		    ) VALUES 
+		    (
+		        #{item.stdntNo}
+		        , #{item.stdntPassword}
+		    )
+		  INTO student_information (
+		        stdnt_no
+		        , stdnt_nm
+		        , stdnt_ihidnum1
+		        , stdnt_ihidnum2
+		        , stdnt_zip
+		        , stdnt_adres1
+		        , stdnt_adres2
+		        , stdnt_telno
+		        , nlty_se
+		        , sexdstn_se
+		        , bank_se
+		        , stdnt_acnutno
+		    ) VALUES 
+		    (
+		        #{item.stdntNo}
+		        , #{item.stdntNm}
+		        , #{item.stdntIhidnum1}
+		        , #{item.stdntIhidnum2}
+		        , #{item.stdntZip}
+		        , #{item.stdntAdres1}
+		        , #{item.stdntAdres2}
+		        , #{item.stdntTelno}
+		        , #{item.nltySe}
+		        , #{item.sexdstnSe}
+		        , #{item.bankSe}
+		        , #{item.stdntAcnutno}
+		    )
+		  INTO school_register_status 
+		    (
+		        stdnt_no
+		        , sknrg_sttus_grade
+		        , sknrg_sttus_major1
+		        , sknrg_sttus_entsch
+		        , sknrg_sttus_enterence_se
+		    ) VALUES 
+		    (
+		        #{item.stdntNo}
+		        , #{item.sknrgSttusGrade}
+		        , #{item.sknrgSttusMajor1}
+		        , #{item.sknrgSttusEntsch}
+		        , #{item.sknrgSttusEnterenceSe}
+		    )
+		    INTO school_register_history (
+		    semstr_no
+		    , stdnt_no 
+		    , sknrg_hist_date 
+		    , sknrgs_se
+		) VALUES (
+		    #{item.semstrNo}
+		    , #{item.stdntNo}
+		    , #{item.sknrgHistDate}
+		    , #{item.sknrgsSe}
+		)
+		</foreach>
+		SELECT * FROM dual
+	</insert>
+	
+
+</mapper>

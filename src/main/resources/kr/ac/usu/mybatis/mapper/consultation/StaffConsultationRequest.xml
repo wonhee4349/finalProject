@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.consultation.mapper.StaffConsultationRequestMapper">
+
+	<resultMap type="kr.ac.usu.consultation.vo.ConsultationRequestVO" id="consultationRequestMap" autoMapping="true">
+		<id property="cnsltNo" column="CNSLT_NO"/>
+		<association property="consulatation" javaType="kr.ac.usu.consultation.vo.ConsultationVO" autoMapping="true" />
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+				<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+			</association>
+		</association>
+	</resultMap>
+
+
+	<sql id="searchFrag"> 
+		WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.stdntNo)">
+			AND STDNT_NO = #{detailCondition.stdntNo}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.stdntNm)">
+			AND INSTR(STDNT_NM, #{detailCondition.student.stdntNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.subject.college.clgNo)">
+			AND INSTR(CLG_NO, #{detailCondition.student.subject.college.clgNo}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.sknrgSttusMajor1)">
+			AND INSTR(SUBJCT_NO, #{detailCondition.student.sknrgSttusMajor1}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.cnsltRequstProcess)">
+			AND INSTR(COM1, #{detailCondition.cnsltRequstProcess}) > 0
+		</if>
+	</sql>
+	
+	<sql id="fromFrag">
+		SELECT	
+            A.CNSLT_NO
+            , A.STDNT_NO
+            , B.STDNT_NM
+            , F.CLG_NO
+            , F.CLG_NM
+            , E.SUBJCT_NO
+            , E.SUBJCT_NM SKNRG_STTUS_MAJOR1
+            , SUBSTR(A.CNSLT_REQUST_DATE,3,2) || '/' || SUBSTR(A.CNSLT_REQUST_DATE,5,2) || '/' ||SUBSTR(A.CNSLT_REQUST_DATE,7,2) CNSLT_REQUST_DATE
+            , C.COM_CODE COM1
+            , C.COM_CODE_NM CNSLT_REQUST_PROCESS
+		FROM
+		    CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+			INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_PROCESS = C.COM_CODE)
+			INNER JOIN SCHOOL_REGISTER_STATUS D ON (A.STDNT_NO = D.STDNT_NO)
+            INNER JOIN SUBJECT E ON (D.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO)
+            INNER JOIN COLLEGE F ON (E.CLG_NO = F.CLG_NO)
+		WHERE
+			C.COM_CODE_GRP = 'SEC013'
+            AND A.CNSLT_SE = '02'
+        ORDER BY COM1, CNSLT_NO DESC
+	</sql>
+	
+	<!-- 상담 신청 목록 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="fromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectConsultationRequestList" resultType="kr.ac.usu.consultation.vo.ConsultationRequestVO"
+			parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="consultationRequestMap">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="fromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 상담 신청 내역 상세페이지 불러오기 -->
+	<select id="selectConsultationRequestInfo" resultMap="consultationRequestMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT
+		        A.CNSLT_NO
+		        , B.STDNT_NO
+		        , B.STDNT_NM
+		        , SUBSTR(A.CNSLT_REQUST_DATE,3,2) || '/' || SUBSTR(A.CNSLT_REQUST_DATE,5,2) || '/' || SUBSTR(A.CNSLT_REQUST_DATE,7,2) CNSLT_REQUST_DATE
+		        , A.CNSLT_REQUST_TIME
+		        , C.COM_CODE_NM TIME_TABLE
+		        , A.CNSLT_REQUST_CN
+		        , D.COM_CODE_NM CNSLT_REQUST_PROCESS
+		        , E.SKNRG_STTUS_GRADE
+		        , G.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		      	, A.CNSLT_REQUST_RETURN
+		    FROM
+		        CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON (A.STDNT_NO = B.STDNT_NO)
+		        INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_TIME = C.COM_CODE)
+		        INNER JOIN COM_CODE D ON (A.CNSLT_REQUST_PROCESS = D.COM_CODE)
+		        INNER JOIN SCHOOL_REGISTER_STATUS E ON (A.STDNT_NO = E.STDNT_NO)
+		        INNER JOIN SUBJECT G ON (E.SKNRG_STTUS_MAJOR1 = G.SUBJCT_NO)
+		    WHERE
+		        C.COM_CODE_GRP = 'SEC011'
+		        AND D.COM_CODE_GRP = 'SEC013'
+		        AND A.CNSLT_NO = #{cnsltNo}
+		) A
+	</select>
+			
+	<select id="selectStaffList" resultType="kr.ac.usu.user.vo.StaffVO">
+		SELECT
+		    sklstf_no
+		    , sklstf_nm
+		FROM
+		    staff
+	</select>
+	
+	<update id="updateAppliedConsultationRequest" parameterType="kr.ac.usu.consultation.vo.ConsultationRequestVO">
+		UPDATE consultation_request
+		SET
+		    cnslt_requst_process = '02'
+		WHERE
+		    cnslt_no = #{cnsltNo}
+	</update>
+	
+	<insert id="insertConsultation" parameterType="kr.ac.usu.consultation.vo.ConsultationVO">
+		INSERT INTO consultation (
+		    cnslt_no
+		    , cnslt_cnsltnt
+		    , stdnt_no
+		    , cnslt_date
+		    , tmtb_se
+		) VALUES (
+			#{cnsltNo, jdbcType = VARCHAR}
+			, #{cnsltCnsltnt, jdbcType = VARCHAR}
+			, #{stdntNo, jdbcType = VARCHAR}
+			, #{cnsltDate, jdbcType = VARCHAR}
+			, #{tmtbSe, jdbcType = VARCHAR}
+		)
+	</insert>
+	
+	<update id="updateRefusedConsultationRequest" parameterType="kr.ac.usu.consultation.vo.ConsultationRequestVO">
+		UPDATE consultation_request
+		SET
+		    cnslt_requst_process = '03'
+		    , cnslt_requst_return = #{cnsltRequstReturn}
+		WHERE
+		    cnslt_no = #{cnsltNo}
+	</update>
+	
+			
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

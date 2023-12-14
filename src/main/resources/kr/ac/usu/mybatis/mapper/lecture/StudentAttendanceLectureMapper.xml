@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 11. 20.     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+
+
+	<resultMap type="kr.ac.usu.lecture.vo.LectureVO" id="lectureInfo" autoMapping="true">
+		<id property="lctreNo" column="LCTRE_NO" />
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true" />
+		<association property="facilities" javaType="kr.ac.usu.facilities.vo.FacilitiesVO" autoMapping="true" />
+		<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true" />
+	</resultMap>
+
+	<sql id="searchFrag">
+			AND L.LCTRE_SE ='01'	/* 대면강의만 갖고오게 */
+			<if test="@org.apache.commons.lang3.StringUtils@isBlank(detailCondition.clgNo)">
+				<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.subjctNo)">
+					/* 선택한 단과대가 있는 경우 */
+					<if test="detailCondition.subjctNo == '00'">
+						/* 선택한 학과가 교양인경우 */
+						AND SJ.SUBJCT_NO IS NULL
+					</if>
+					<if test="detailCondition.subjctNo != '00'">
+						/* 선택한 학과가 교양이 아닌경우 */
+						AND SJ.SUBJCT_NO = #{detailCondition.subjctNo}
+					</if>
+				</if>
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.clgNo)">
+				/* 선택한 단과대가 없는경우 */
+				AND CL.CLG_NO = #{detailCondition.clgNo}
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.complSe)">
+				AND C.COMPL_SE = #{detailCondition.complSe}
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.courseNm)">
+				AND INSTR(C.COURSE_NM, #{detailCondition.courseNm}) > 0
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.coursePnt)">
+				AND C.COURSE_PNT = #{detailCondition.coursePnt}
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prfsorNm)">
+				AND INSTR(P.PRFSOR_NM, #{detailCondition.prfsorNm}) > 0
+			</if>
+	</sql>
+
+	<select id="selectRequestableLectureListTotalCount" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultType="int">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.selectRequestableLectureListTotalCount */
+		WITH COMMONVIEW AS(
+	    		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015'
+			),
+			TIMETABLEVIEW AS(
+			    SELECT LCTRE_NO
+			     , LISTAGG(CC.COM_CODE_NM, '/') WITHIN GROUP (ORDER BY COM_CODE_NM)
+			          OVER(PARTITION BY LCTRE_NO) AS TMTB_SE_NM FROM LECTURE_TIMETABLE LT
+			          INNER JOIN COM_CODE CC ON (CC.COM_CODE = LT.TMTB_SE)
+				<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.courseDayOfWeek)">
+					WHERE INSTR(LT.TMTB_SE ,#{detailCondition.courseDayOfWeek}) > 0
+				</if>
+			),
+			COMPLVIEW AS(
+				SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014'
+			)
+		SELECT
+			COUNT(DISTINCT(L.LCTRE_NO))
+		FROM
+		    LECTURE L 
+		            INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+		            INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+		            INNER JOIN COMMONVIEW CV ON(CV.COM_CODE = L.LCTRE_SE)
+		            INNER JOIN COMPLVIEW CPV ON(CPV.COM_CODE = C.COMPL_SE)
+		            LEFT OUTER JOIN SUBJECT SJ ON (C.SUBJCT_NO = SJ.SUBJCT_NO)
+		            LEFT OUTER JOIN COLLEGE CL ON (CL.CLG_NO = SJ.CLG_NO)
+		            LEFT OUTER JOIN FACILITIES F ON (F.FCLTS_NO = L.FCLTS_NO)
+		            LEFT OUTER JOIN BUILDING B ON (F.BULD_NO = B.BULD_NO)
+		            <if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.courseDayOfWeek)">
+			            INNER JOIN TIMETABLEVIEW TV ON (L.LCTRE_NO = TV.LCTRE_NO)
+					</if>
+		            <if test="@org.apache.commons.lang3.StringUtils@isBlank(detailCondition.courseDayOfWeek)">
+			            LEFT OUTER JOIN TIMETABLEVIEW TV ON (L.LCTRE_NO = TV.LCTRE_NO)
+					</if>
+		WHERE L.SEMSTR_SE = #{detailCondition.semstrSe}
+			<include refid="searchFrag" />
+		ORDER BY COURSE_NM ASC
+	</select>
+
+	<select id="selectRequestableLectureList" resultMap="lectureInfo" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.selectRequestableLectureList */
+		WITH COMMONVIEW AS(
+    		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015'
+		),
+		TIMETABLEVIEW AS(
+		    SELECT LCTRE_NO
+		     , LISTAGG(CC.COM_CODE_NM, '/') WITHIN GROUP (ORDER BY COM_CODE_NM)
+		          OVER(PARTITION BY LCTRE_NO) AS TMTB_SE_NM FROM LECTURE_TIMETABLE LT
+		          INNER JOIN COM_CODE CC ON (CC.COM_CODE = LT.TMTB_SE)
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.courseDayOfWeek)">
+				WHERE INSTR(LT.TMTB_SE ,#{detailCondition.courseDayOfWeek}) > 0
+			</if>
+		),
+		COMPLVIEW AS(
+			SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014'
+		)
+		SELECT B.*
+		FROM (
+			SELECT ROWNUM RNUM, A.*
+			FROM (
+				SELECT DISTINCT
+					L.LCTRE_NO
+				    , C.COURSE_NM
+				    , C.COURSE_PNT
+				    , CPV.COM_CODE_NM COMPL_SE
+				    , P.PRFSOR_NM
+				    , (SELECT COUNT(*) FROM ATTENDANCE_LECTURE WHERE LCTRE_NO = L.LCTRE_NO) CURR_CNT /* 현재원 */
+				    , L.LCTRE_NMPR /* 정원 */
+				    , TV.TMTB_SE_NM /* 시간표 */
+				    , NVL(SJ.SUBJCT_NM,'교양과목') SUBJCT_NM
+				    , CASE WHEN L.FCLTS_NO IS NULL THEN CV.COM_CODE_NM
+				    ELSE B.BULD_NM || '(' || F.FCLTS_NM || ')'
+				    END AS FCLTS_NM /* 강의실 */
+				FROM
+				    LECTURE L 
+				            INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+				            INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+				            INNER JOIN COMMONVIEW CV ON(CV.COM_CODE = L.LCTRE_SE)
+				            INNER JOIN COMPLVIEW CPV ON(CPV.COM_CODE = C.COMPL_SE)
+				            LEFT OUTER JOIN SUBJECT SJ ON (C.SUBJCT_NO = SJ.SUBJCT_NO)
+				            LEFT OUTER JOIN COLLEGE CL ON (CL.CLG_NO = SJ.CLG_NO)
+				            LEFT OUTER JOIN FACILITIES F ON (F.FCLTS_NO = L.FCLTS_NO)
+				            LEFT OUTER JOIN BUILDING B ON (F.BULD_NO = B.BULD_NO)
+				            <if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.courseDayOfWeek)">
+					            INNER JOIN TIMETABLEVIEW TV ON (L.LCTRE_NO = TV.LCTRE_NO)
+							</if>
+				            <if test="@org.apache.commons.lang3.StringUtils@isBlank(detailCondition.courseDayOfWeek)">
+					            LEFT OUTER JOIN TIMETABLEVIEW TV ON (L.LCTRE_NO = TV.LCTRE_NO)
+							</if>
+				WHERE L.SEMSTR_SE = #{detailCondition.semstrSe}
+					<include refid="searchFrag" />
+				ORDER BY COURSE_NM ASC
+				) A
+			) B
+		<![CDATA[
+		WHERE
+			RNUM >= #{startRow} AND RNUM <= #{endRow}
+		]]>
+	</select>
+
+
+	<select id="selectRequestablePoint" parameterType="HashMap" resultType="int">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.getRequestablePoint */
+			WITH SCOREVIEW AS(
+				SELECT
+					S.LCTRE_NO
+				    , SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100) ) AS SCORE_SCORE
+				FROM
+					LECTURE_EVALUATION_STANDARD LES INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+													INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+				WHERE
+					STDNT_NO = #{id}
+				AND
+					SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+				GROUP BY S.LCTRE_NO
+			), COMPLVIEW AS (
+	            SELECT
+	                COM_CODE,
+	                COM_CODE_GRP,
+	                COM_CODE_NM,
+	                COM_CODE_DESC,
+	                USE_YN,
+	                COM_CODE_SEQ,
+	                UPPER_CODE_GRP,
+	                UPPER_COM_CODE
+	            FROM
+	                COM_CODE
+	            WHERE
+	                COM_CODE_GRP = 'SEC014'
+	        ), TARGETVIEW AS 
+			(
+				SELECT
+					(SELECT CAL_SCORE 
+				    FROM
+				    	SCORE_CHART
+				    WHERE 
+						SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+				    ) CAL_SCORE
+				    , C.COURSE_NM
+				    , L.LCTRE_NO
+		            , C.COURSE_PNT
+		            , CV.COM_CODE_NM COMPL_SE
+				FROM
+					SCOREVIEW SV INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+									INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+		                            INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+				WHERE
+		            L.SEMSTR_SE = #{preSemCd}
+	        ), TARGETVIEW2 AS(
+		        SELECT *
+		        FROM TARGETVIEW
+		        WHERE CAL_SCORE != 0
+	        ), CALSCOREVIEW AS(
+		        SELECT
+		        	NVL((ROUND((SUM(CAL_SCORE*COURSE_PNT)/SUM(COURSE_PNT))*10))/10,3) AS CALC
+		        FROM
+		        	TARGETVIEW2
+			)
+			SELECT 
+				<![CDATA[
+					CASE WHEN CALC > 4 THEN 21
+					WHEN CALC < 3 THEN 15
+				]]>
+				ELSE 18
+				END
+				-
+				NVL((
+					SELECT SUM(C.COURSE_PNT)
+					FROM ATTENDANCE_LECTURE AL
+						INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO )
+						INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					WHERE AL.STDNT_NO = #{id}
+					AND L.SEMSTR_SE = #{currSemCd}
+				),0)
+			FROM CALSCOREVIEW
+	</select>
+	
+
+	
+	<select id="selectRequestableLectureInfo" resultMap="lectureInfo" parameterType="String" >
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.selectRequestableLectureInfo */
+		WITH COMMONVIEW as(
+    		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015'
+		),
+		TIMETABLEVIEW AS(
+		    SELECT LCTRE_NO
+		     , LISTAGG(CC.COM_CODE_NM, '/') WITHIN GROUP (ORDER BY COM_CODE_NM)
+		          OVER(PARTITION BY LCTRE_NO) AS TMTB_SE_NM FROM LECTURE_TIMETABLE LT
+		          INNER JOIN COM_CODE CC ON (CC.COM_CODE = LT.TMTB_SE)
+		),
+		COMPLVIEW AS(
+			SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014'
+		)
+		SELECT
+			L.LCTRE_NO
+		    , C.COURSE_NM
+		    , C.COURSE_PNT
+		    , CPV.COM_CODE_NM COMPL_SE
+		    , P.PRFSOR_NM
+		    , (SELECT COUNT(*) FROM ATTENDANCE_LECTURE WHERE LCTRE_NO = L.LCTRE_NO) CURR_CNT /* 현재원 */
+		    , L.LCTRE_NMPR /* 정원 */
+		    , TV.TMTB_SE_NM /* 시간표 */
+		    , CASE WHEN L.FCLTS_NO IS NULL THEN CV.COM_CODE_NM
+		    ELSE B.BULD_NM || '(' || F.FCLTS_NM || ')'
+		    END AS FCLTS_NM /* 강의실 */
+		FROM
+		    LECTURE L 
+		            INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+		            INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+		            INNER JOIN COMMONVIEW CV ON(CV.COM_CODE = L.LCTRE_SE)
+		            INNER JOIN COMPLVIEW CPV ON(CPV.COM_CODE = C.COMPL_SE)
+		            LEFT OUTER JOIN FACILITIES F ON (F.FCLTS_NO = L.FCLTS_NO)
+		            LEFT OUTER JOIN BUILDING B ON (F.BULD_NO = B.BULD_NO)
+		            LEFT OUTER JOIN TIMETABLEVIEW TV ON (L.LCTRE_NO = TV.LCTRE_NO)
+		WHERE L.LCTRE_NO = #{lctreNo}
+	</select>
+	
+	<select id="selectRequestedLectureList" parameterType="HashMap" resultMap="lectureInfo">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.selectRequestedLectureList */
+		WITH COMMONVIEW as(
+    		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015'
+		),
+		TIMETABLEVIEW AS(
+		    SELECT LCTRE_NO
+		     , LISTAGG(CC.COM_CODE_NM, '/') WITHIN GROUP (ORDER BY COM_CODE_NM)
+		          OVER(PARTITION BY LCTRE_NO) AS TMTB_SE_NM FROM LECTURE_TIMETABLE LT
+		          INNER JOIN COM_CODE CC ON (CC.COM_CODE = LT.TMTB_SE)
+		),
+		COMPLVIEW AS(
+			SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014'
+		)
+		SELECT DISTINCT
+			L.LCTRE_NO
+		    , C.COURSE_NM
+		    , C.COURSE_PNT
+		    , CPV.COM_CODE_NM COMPL_SE
+		    , P.PRFSOR_NM
+		    , (SELECT COUNT(*) FROM ATTENDANCE_LECTURE WHERE LCTRE_NO = L.LCTRE_NO) CURR_CNT /* 현재원 */
+		    , L.LCTRE_NMPR /* 정원 */
+		    , TV.TMTB_SE_NM /* 시간표 */
+		    , CASE WHEN L.FCLTS_NO IS NULL THEN CV.COM_CODE_NM
+		    ELSE B.BULD_NM || '(' || F.FCLTS_NM || ')'
+		    END AS FCLTS_NM /* 강의실 */
+		FROM
+		    ATTENDANCE_LECTURE AL
+                    INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+		            INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+		            INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+		            INNER JOIN COMMONVIEW CV ON(CV.COM_CODE = L.LCTRE_SE)
+		            INNER JOIN COMPLVIEW CPV ON(CPV.COM_CODE = C.COMPL_SE)
+		            LEFT OUTER JOIN FACILITIES F ON (F.FCLTS_NO = L.FCLTS_NO)
+		            LEFT OUTER JOIN BUILDING B ON (F.BULD_NO = B.BULD_NO)
+		            LEFT OUTER JOIN TIMETABLEVIEW TV ON (L.LCTRE_NO = TV.LCTRE_NO)
+		WHERE
+            L.SEMSTR_SE = #{semCd}
+            AND AL.STDNT_NO = #{id}
+        ORDER BY C.COURSE_NM ASC
+	</select>
+	
+	<select id="selectPrepareLectureList" resultMap="lectureInfo" parameterType="HashMap">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.selectPrepareLectureList */
+		WITH COMMONVIEW as(
+    		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015'
+		),
+		TIMETABLEVIEW AS(
+		    SELECT LCTRE_NO
+		     , LISTAGG(CC.COM_CODE_NM, '/') WITHIN GROUP (ORDER BY COM_CODE_NM)
+		          OVER(PARTITION BY LCTRE_NO) AS TMTB_SE_NM FROM LECTURE_TIMETABLE LT
+		          INNER JOIN COM_CODE CC ON (CC.COM_CODE = LT.TMTB_SE)
+		),
+		COMPLVIEW AS(
+			SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014'
+		)
+		SELECT DISTINCT
+			L.LCTRE_NO
+		    , C.COURSE_NM
+		    , C.COURSE_PNT
+		    , P.PRFSOR_NM
+		    , CPV.COM_CODE_NM COMPL_SE
+		    , (SELECT COUNT(*) FROM ATTENDANCE_LECTURE WHERE LCTRE_NO = L.LCTRE_NO) CURR_CNT /* 현재원 */
+		    , L.LCTRE_NMPR /* 정원 */
+		    , TV.TMTB_SE_NM /* 시간표 */
+		    , CASE WHEN L.FCLTS_NO IS NULL THEN CV.COM_CODE_NM
+		    ELSE B.BULD_NM || '(' || F.FCLTS_NM || ')'
+		    END AS FCLTS_NM /* 강의실 */
+		FROM
+		    PREPARATION_LECTURE AL
+                    INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+		            INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+		            INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+		            INNER JOIN COMMONVIEW CV ON(CV.COM_CODE = L.LCTRE_SE)
+		            INNER JOIN COMPLVIEW CPV ON(CPV.COM_CODE = C.COMPL_SE)
+		            LEFT OUTER JOIN FACILITIES F ON (F.FCLTS_NO = L.FCLTS_NO)
+		            LEFT OUTER JOIN BUILDING B ON (F.BULD_NO = B.BULD_NO)
+		            LEFT OUTER JOIN TIMETABLEVIEW TV ON (L.LCTRE_NO = TV.LCTRE_NO)
+		WHERE
+            L.SEMSTR_SE = #{semCd}
+            AND AL.STDNT_NO = #{id}
+        ORDER BY C.COURSE_NM ASC
+	</select>
+	
+	<insert id="insertAttendanceLecture" parameterType="kr.ac.usu.lecture.vo.StudentAttendanceLectureVO">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.insertAttendanceLecture */
+		INSERT INTO ATTENDANCE_LECTURE (
+		    STDNT_NO
+		    , LCTRE_NO
+		) VALUES (
+			#{stdntNo,jdbcType=VARCHAR}
+			, #{lctreNo,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<insert id="insertAttendanceLectureTimeTable" parameterType="kr.ac.usu.lecture.vo.StudentAttendanceLectureVO">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.insertAttendanceLectureTimeTable */
+		INSERT INTO STUDENT_TIMETABLE (
+		    TMTB_SE,
+		    SEMSTR_NO,
+		    STDNT_NO
+		) 
+		(
+			SELECT
+			TMTB_SE
+			, #{semCd,jdbcType=VARCHAR}
+			, #{stdntNo,jdbcType=VARCHAR}
+			FROM LECTURE_TIMETABLE
+			WHERE LCTRE_NO = #{lctreNo,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<delete id="deleteAttendanceLecture" parameterType="kr.ac.usu.lecture.vo.StudentAttendanceLectureVO">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.deleteAttendanceLecture */
+		DELETE FROM
+			ATTENDANCE_LECTURE
+		WHERE
+			STDNT_NO = #{stdntNo}
+		AND
+			LCTRE_NO = #{lctreNo}
+	</delete>
+	<delete id="deleteAttendanceLectureTimeTable" parameterType="kr.ac.usu.lecture.vo.StudentAttendanceLectureVO">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.deleteAttendanceLectureTimeTable */
+		DELETE FROM
+			STUDENT_TIMETABLE
+		WHERE
+			SEMSTR_NO = #{semCd}
+		AND
+			STDNT_NO = #{stdntNo}
+		AND
+			TMTB_SE IN (SELECT TMTB_SE FROM LECTURE_TIMETABLE WHERE LCTRE_NO = #{lctreNo})
+	</delete>
+	<insert id="insertPrepareLecture" parameterType="kr.ac.usu.lecture.vo.StudentAttendanceLectureVO">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.insertPrepareLecture */
+		INSERT INTO PREPARATION_LECTURE (
+		    STDNT_NO,
+		    LCTRE_NO
+		) VALUES (
+		    #{stdntNo,jdbcType=VARCHAR}
+			, #{lctreNo,jdbcType=VARCHAR}
+		)
+	</insert>
+	<delete id="deletePrepareLecture" parameterType="kr.ac.usu.lecture.vo.StudentAttendanceLectureVO">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.deletePrepareLecture */
+		DELETE FROM
+			PREPARATION_LECTURE
+		WHERE
+			STDNT_NO = #{stdntNo}
+		AND
+			LCTRE_NO = #{lctreNo}
+	</delete>
+	
+	<select id="checkAlreadyDone" parameterType="kr.ac.usu.lecture.vo.StudentAttendanceLectureVO" resultType="int">
+		/* kr.ac.usu.lecture.mapper.StudentAttendanceLectureMapper.checkAlreadyDone */
+		SELECT
+			COUNT(*)
+		FROM
+			ATTENDANCE_LECTURE 
+		WHERE
+			LCTRE_NO = #{lctreNo}
+		AND
+			STDNT_NO = #{stdntNo}
+	</select>
+	
+</mapper>

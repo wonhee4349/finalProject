@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.club.mapper.StudentClubRequestMapper">
+
+
+	<resultMap type="kr.ac.usu.facilities.vo.BuildingVO"
+		id="buildingMap" autoMapping="true">
+		<id property="buldNo" column="BULD_NO" />
+		<association property="college"
+			javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true" />
+	</resultMap>
+
+	<resultMap type="kr.ac.usu.facilities.vo.FacilitiesVO"
+		id="facilitiesMap" autoMapping="true">
+		<id property="fcltsNo" column="FCLTS_NO" />
+		<association property="building"
+			javaType="kr.ac.usu.facilities.vo.BuildingVO" autoMapping="true" />
+	</resultMap>
+
+	<resultMap type="kr.ac.usu.club.vo.ClubEstblVO" id="clubRequestMap" autoMapping="true">
+		<id property="clubEsNo" column="CLUB_ES_NO"/>
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true" />
+	</resultMap>
+	
+	<select id="comCodeNm" resultType="map">
+		select com_code
+		, com_code_nm
+		from com_code
+		where
+		com_code_grp = 'SEC006'
+		and use_yn='Y'
+	</select>
+
+	<select id="buldCodeNm" resultType="map">
+	   SELECT BULD_NO, BULD_NM FROM BUILDING
+	</select>
+	
+<!-- <select id="getFacilitiesByBuilding" resultType="map" parameterType="String">
+    SELECT FCLTS_NO, FCLTS_NM
+    FROM FACILITIES
+    WHERE BULD_NO = #{buildingNo}
+</select>
+
+ -->
+
+<insert id="createClubRequest" parameterType="kr.ac.usu.club.vo.ClubEstblVO">
+    <selectKey keyProperty="clubEsNo" resultType="String" order="BEFORE">
+        <!-- CLUB_ES_NO 시퀀스 값을 생성하여 가져오기 -->
+        SELECT 'RCL' || LPAD(SEQ_CLUB_ES_NO.NEXTVAL, 3, '0') AS clubEsNo FROM DUAL
+    </selectKey>
+    <!-- 나머지 컬럼들을 CLUB_ESTBL 테이블에 삽입 -->
+    INSERT INTO CLUB_ESTBL (
+        CLUB_ES_NO,
+        CLUB_ES_NM,
+        STDNT_NO,
+        FCLTS_NO,
+        CLUB_ES_INTRCN,
+        CLUB_SE,
+        CONFM_SE
+    )
+    VALUES (
+        #{clubEsNo},
+        #{clubEsNm},
+        #{stdntNo},
+        #{fcltsNo},
+        #{clubEsIntrcn},
+        #{clubSe},
+        #{confmSe}
+    )
+</insert>
+
+
+<sql id="searchFrag"> 
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'clubEsNm'">
+	    				INSTR(CLUB_ES_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'clubSe'">
+	    				INSTR(CLUB_SE, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'confmSe'">
+	    				INSTR(CONFM_SE, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<otherwise>
+	    				INSTR(CLUB_ES_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(CLUB_SE, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(CONFM_SE, #{simpleCondition.searchWord}) > 0
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="fromFrag">
+		SELECT	
+            A.CLUB_ES_NO
+            , A.CLUB_ES_NM
+            , B.STDNT_NM
+            , C.COM_CODE_NM CLUB_SE
+            , D.COM_CODE_NM CONFM_SE
+		FROM
+		    CLUB_ESTBL A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+            INNER JOIN COM_CODE C ON (A.CLUB_SE = C.COM_CODE)
+            INNER JOIN COM_CODE D ON (A.CONFM_SE = D.COM_CODE)
+        WHERE
+            C.COM_CODE_GRP = 'SEC006'
+            AND D.COM_CODE_GRP = 'SEC013'
+        ORDER BY
+            A.CONFM_SE
+	</sql>
+	
+	<!-- 동아리 신청 목록 불러오기 -->
+<select id="selectTotalRecord" resultType="int" parameterType="String">
+    SELECT COUNT(*)
+    FROM CLUB_ESTBL A
+    WHERE A.STDNT_NO = #{detailCondition.stdntNo} <!-- 해당 아이디에 맞는 동아리만 가져오도록 수정 -->
+</select>
+
+<select id="selectClubRequestList" resultMap="clubRequestMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+     SELECT A.*
+    FROM (
+        SELECT ROWNUM RNUM, B.*
+        FROM (
+            SELECT
+                A.CLUB_ES_NO
+                , A.CLUB_ES_NM
+                , (SELECT B.COM_CODE_NM FROM COM_CODE B WHERE B.COM_CODE_GRP = 'SEC006' AND B.COM_CODE = A.CLUB_SE) CLUB_SE
+                , (SELECT C.COM_CODE_NM FROM COM_CODE C WHERE C.COM_CODE_GRP = 'SEC013' AND C.COM_CODE = A.CONFM_SE) CONFM_SE
+            FROM
+                CLUB_ESTBL A
+            WHERE A.STDNT_NO = #{detailCondition.stdntNo}
+            ORDER BY A.CLUB_ES_NO DESC  <!-- 정렬 기준 추가 -->
+        ) B
+    ) A
+    <![CDATA[
+    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+    ]]>
+</select>
+
+
+<!-- 동아리 신청 내역 상세페이지 불러오기 -->
+	<select id="selectClubRequestInfo" resultMap="clubRequestMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT	
+		        SUBSTR(A.CLUB_ES_NO,2) CLUB_ES_NO
+		        , A.CLUB_ES_NM
+		        , B.STDNT_NO
+		        , B.STDNT_NM
+		        , F.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		        , C.COM_CODE_NM CLUB_SE_NM
+		        , D.COM_CODE_NM CONFM_SE
+		        , H.BULD_NM BULD_NO
+		        , G.FCLTS_NM FCLTS_NO_NM
+		        , A.CLUB_ES_INTRCN
+		        , A.CLUB_ES_RETURN
+                , A.CLUB_SE
+                , A.FCLTS_NO
+		    FROM
+		        CLUB_ESTBL A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+		        INNER JOIN COM_CODE C ON (A.CLUB_SE = C.COM_CODE)
+		        INNER JOIN COM_CODE D ON (A.CONFM_SE = D.COM_CODE)
+		        INNER JOIN SCHOOL_REGISTER_STATUS E ON (A.STDNT_NO = E.STDNT_NO)
+		        INNER JOIN SUBJECT F ON (E.SKNRG_STTUS_MAJOR1 = F.SUBJCT_NO)
+		        INNER JOIN FACILITIES G ON (A.FCLTS_NO = G.FCLTS_NO)
+		        INNER JOIN BUILDING H ON (G.BULD_NO = H.BULD_NO)
+		    WHERE
+		        C.COM_CODE_GRP = 'SEC006'
+		        AND D.COM_CODE_GRP = 'SEC013'
+		        AND A.CLUB_ES_NO = #{clubEsNo}
+		) A
+	</select>
+
+</mapper>

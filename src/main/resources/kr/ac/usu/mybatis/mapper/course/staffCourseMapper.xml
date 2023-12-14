@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.course.mapper.StaffCourseMapper">
+
+
+	<resultMap type="kr.ac.usu.course.vo.CourseVO" id="courseMap"
+		autoMapping="true">
+		<id property="courseNo" column="COURSE_NO" />
+	</resultMap>
+
+	<sql id="searchPro">
+		<where>
+			<if
+				test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				<choose>
+					<when test="simpleCondition.searchType eq 'COURSE_NM'">
+						INSTR(COURSE_NM, #{simpleCondition.searchWord}) > 0
+					</when>
+					<otherwise>
+						INSTR(COURSE_NM, #{simpleCondition.searchWord}) > 0
+					</otherwise>
+				</choose>
+			</if>
+		</where>
+	</sql>
+
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM COURSE
+		<include refid="searchPro" />
+	</select>
+
+	<select id="selectCourseList"
+		parameterType="kr.ac.usu.paging.vo.PaginationInfo"
+		resultMap="courseMap">
+		WITH COMPLVIEW AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP ='SEC014'
+
+		)
+		SELECT
+		
+		A.*
+		
+		FROM (
+		
+		SELECT
+		
+		ROWNUM RNUM,
+		COURSE_NO,
+		COURSE_NM,
+		COURSE_PNT,
+		CO.COM_CODE_NM COMPL_SE,
+		NVL(S.SUBJCT_NM,'교양') SUBJCT_NM,
+		NVL(CL.CLG_NM,'교양과목') CLG_NM
+		FROM
+			COURSE C
+		INNER JOIN COMPLVIEW CO ON (CO.COM_CODE = C.COMPL_SE)
+		LEFT OUTER JOIN SUBJECT S ON (S.SUBJCT_NO = C.SUBJCT_NO)
+		LEFT OUTER JOIN COLLEGE CL ON (Cl.CLG_NO = S.CLG_NO)
+		<include refid="searchPro" />
+		) A
+			<![CDATA[
+			WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+			]]>
+	</select>
+</mapper>

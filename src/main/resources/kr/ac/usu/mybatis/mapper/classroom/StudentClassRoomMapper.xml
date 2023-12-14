@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.classroom.mapper.StudentClassRoomMapper">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 11. 27.     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+	<resultMap type="kr.ac.usu.lecture.vo.LectureVO" id="lecture" autoMapping="true">
+		<id property="lctreNo" column="LCTRE_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true" />
+		<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true" />
+		<collection property="timetable" ofType="kr.ac.usu.lecture.vo.LectureTimetableVO" autoMapping="true">
+		</collection>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.classroom.vo.TestQuestionVO" id="testQuestion" autoMapping="true">
+		<id property="atchFileNo" column="ATCH_FILE_NO"/>
+		<association property="lecture" javaType="kr.ac.usu.lecture.vo.LectureVO" autoMapping="true">
+			<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true" />
+		</association>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureVideoVO" id="lectureVideo" autoMapping="true">
+		<id property="atchFileNo" column="ATCH_FILE_NO"/>
+		<association property="lecture" javaType="kr.ac.usu.lecture.vo.LectureVO" autoMapping="true" />
+		<collection property="attatchingFileList" ofType="kr.ac.usu.board.vo.AttatchingFileVO" autoMapping="true" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.classroom.vo.ClassroomBoardVO" id="boardInfo" autoMapping="true">
+		<id property="crNo" column="CR_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true" />
+	</resultMap>
+	
+	<select id="selectClassRoomList" resultMap="lecture" parameterType="HashMap" >
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectClassRoomList */
+		SELECT
+		    AL.LCTRE_NO
+		    , C.COURSE_NM
+		    , P.PRFSOR_NM
+		    , (SELECT COM_CODE_NM FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014' AND COM_CODE = L.COMPL_SE) COMPL_SE
+		    , (SELECT COM_CODE_NM FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015' AND COM_CODE = L.LCTRE_SE) LCTRE_SE
+		FROM
+		    ATTENDANCE_LECTURE AL
+		        INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+		        INNER JOIN PROFESSOR P ON (P.PRFSOR_NO = L.PRFSOR_NO)
+		        INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+		        INNER JOIN CLASSROOM CR ON (CR.LCTRE_NO = L.LCTRE_NO)
+		WHERE
+			STDNT_NO = #{id}
+		AND
+			L.SEMSTR_SE = #{semCd}
+	</select>
+	
+	<select id="selectHomeWorkList" parameterType="kr.ac.usu.lecture.vo.LectureVO" resultType="kr.ac.usu.classroom.vo.ClassroomBoardVO">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectHomeWorkList */
+		SELECT
+		     CB.CR_NO
+		    , (SELECT COM_CODE_NM FROM COM_CODE WHERE COM_CODE_GRP = 'SEC020' AND COM_CODE = CB.CR_SE) CR_SE_NM
+		    , CB.CR_TITLE
+		    , CB.CR_CN
+		    , CB.CR_WRTER
+		    , CB.CR_DATE
+		    , CB.ATCH_FILE_NO
+		    , CB.LCTRE_NO
+		    , CASE (SELECT NVL(COUNT(*),0) FROM LECTURE_SUBMIT WHERE STDNT_NO = AL.STDNT_NO AND CR_NO = CB.CR_NO)
+                    WHEN 1 THEN '제출완료'
+                    ELSE '미제출' END AS SUBMITTED
+		FROM
+		    ATTENDANCE_LECTURE AL
+		        INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+		        INNER JOIN CLASSROOM CR ON (CR.LCTRE_NO = L.LCTRE_NO)
+		        INNER JOIN CLASSROOM_BOARD CB ON (CB.LCTRE_NO = CR.LCTRE_NO)
+		WHERE
+			CB.CR_SE = '01'
+		AND
+			L.SEMSTR_SE = #{semCd}
+		AND
+			AL.STDNT_NO = #{id}
+		AND
+			CB.LCTRE_NO = #{lctreNo}
+	</select>
+	
+	<select id="selectTestQuestionList" parameterType="HashMap" resultMap="testQuestion">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectTestQuestionList */
+		SELECT
+		    COURSE_NM
+		    , (SELECT COM_CODE_NM FROM COM_CODE WHERE COM_CODE_GRP = 'SEC021' AND COM_CODE = TQ.TEST_SE) TEST_SE_NM
+		    , TQ.TEST_SE
+		    , TQ.LCTRE_NO
+		    , (TQ.TEST_QUST_TIME /60)||'분' TEST_TIME_NM
+		    , (SELECT COUNT(1) FROM TEST_ANSWER_PAPER WHERE LCTRE_NO = TQ.LCTRE_NO AND TEST_SE = TQ.TEST_SE) QUESTION_CNT
+		    , CASE WHEN
+		    (SELECT NVL(COUNT(1),0) FROM SUBMIT_ANSWER_PAPER WHERE LCTRE_NO = TQ.LCTRE_NO AND TEST_SE = TQ.TEST_SE AND STDNT_NO = AL.STDNT_NO) > 0
+		    THEN '응시완료'
+		    ELSE '미응시' END AS QUESTIONABLE
+		FROM
+		    TEST_QUESTION TQ
+		        INNER JOIN LECTURE L ON (L.LCTRE_NO = TQ.LCTRE_NO)
+		        INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+		        INNER JOIN ATTENDANCE_LECTURE AL ON (AL.LCTRE_NO = L.LCTRE_NO)
+		WHERE
+		    TQ.LCTRE_NO = #{lctreNo}
+		AND
+		    AL.STDNT_NO = #{id}
+		AND
+		    L.SEMSTR_SE = #{semCd}
+	</select>
+	<select id="selectTestQuestion" parameterType="kr.ac.usu.classroom.vo.TestVO" resultType="kr.ac.usu.classroom.vo.TestQuestionVO">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectTestQuestion */
+		SELECT
+		    TQ.TEST_SE
+		    , TQ.LCTRE_NO
+		    , TQ.ATCH_FILE_NO
+		    , TQ.TEST_QUST_TIME
+		    , (TQ.TEST_QUST_TIME /60)||'분' TEST_TIME_NM
+		    , (SELECT COUNT(1) FROM TEST_ANSWER_PAPER WHERE LCTRE_NO = TQ.LCTRE_NO AND TEST_SE = TQ.TEST_SE) QUESTION_CNT
+		FROM
+		    TEST_QUESTION TQ
+		        INNER JOIN ATTENDANCE_LECTURE AL ON (AL.LCTRE_NO = TQ.LCTRE_NO)
+		WHERE
+			TQ.LCTRE_NO = #{lctreNo}
+		AND
+			AL.STDNT_NO = #{stdntNo}
+		AND
+			TQ.TEST_SE = #{testSe}
+		AND
+			TQ.LCTRE_NO NOT IN (SELECT LCTRE_NO FROM SUBMIT_ANSWER_PAPER WHERE STDNT_NO = AL.STDNT_NO AND TEST_SE = #{testSe})
+	</select>
+	
+	<select id="selectAttatchingFileList" parameterType="String" resultType="kr.ac.usu.board.vo.AttatchingFileVO">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectAttatchingFileList */
+		SELECT
+		    ATCH_FILE_NO
+		    , ATCH_FILE_SN
+		    , ATCH_FILE_NM
+		    , ATCH_FILE_STRE_NM
+		    , ATCH_FILE_STRE_PATH
+		    , ATCH_FILE_MG
+		    , ATCH_FILE_INDICT_MG
+		    , ATCH_FILE_MIME_TYPE
+		FROM
+		    ATTACHING_FILE
+		WHERE
+			ATCH_FILE_NO = #{atchFileNo}
+	</select>
+	
+	<select id="selectClassRoomBoardList" parameterType="HashMap" resultMap="boardInfo">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectClassRoomBoardList */
+		SELECT
+			CR_NO
+			, (SELECT COM_CODE_NM FROM COM_CODE WHERE COM_CODE_GRP = 'SEC020' AND COM_CODE = CB.CR_SE) CR_SE_NM
+			, CR_TITLE
+			, CR_CN
+			, CR_WRTER
+			, P.PRFSOR_NM
+			, CR_DATE
+			, CB.ATCH_FILE_NO
+			, CB.LCTRE_NO
+			FROM
+			    CLASSROOM_BOARD CB 
+			        INNER JOIN ATTENDANCE_LECTURE AL ON (CB.LCTRE_NO = AL.LCTRE_NO)
+			        INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+			        INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+			        INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+			WHERE
+			    AL.STDNT_NO = #{id}
+			AND
+			    AL.LCTRE_NO = #{lctreNo}
+			AND
+			    L.SEMSTR_SE = #{semCd}
+			AND
+			    CB.CR_SE != '01'
+			ORDER BY CR_SE DESC,CR_NO
+	</select>
+	
+	<select id="selectOnlineLectureList" parameterType="HashMap" resultMap="lectureVideo">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectOnlineLectureList */
+		SELECT
+		    LV.LCTRE_VIDO_NO
+		    , LV.LCTRE_NO
+		    , LV.LCTRE_VD_WEEK
+		    , LV.LCTRE_VD_TM
+		    , LV.LCTRE_VD_STDR_TM
+		    , LV.LCTRE_VD_BEGIN_TM
+		    , LV.LCTRE_VD_END_TM
+		    , LV.ATCH_FILE_NO
+		FROM
+		    LECTURE_VIDEO LV
+		        INNER JOIN LECTURE L ON (L.LCTRE_NO = LV.LCTRE_NO)
+		        INNER JOIN ATTENDANCE_LECTURE AL ON (LV.LCTRE_NO = AL.LCTRE_NO)
+		WHERE
+		    AL.STDNT_NO = #{id}
+		AND
+		    AL.LCTRE_NO = #{lctreNo}
+		AND
+		    L.SEMSTR_SE = #{semCd}
+	</select>
+	
+	
+	<select id="selectOneAttatchingFile" parameterType="kr.ac.usu.board.vo.AttatchingFileVO" resultType="kr.ac.usu.board.vo.AttatchingFileVO">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectOneAttatchingFile */
+		SELECT
+		    ATCH_FILE_NO
+		    , ATCH_FILE_SN
+		    , ATCH_FILE_NM
+		    , ATCH_FILE_STRE_NM
+		    , ATCH_FILE_STRE_PATH
+		    , ATCH_FILE_MG
+		    , ATCH_FILE_INDICT_MG
+		    , ATCH_FILE_MIME_TYPE
+		FROM
+		    ATTACHING_FILE
+		WHERE
+			ATCH_FILE_NO = #{atchFileNo}
+		AND
+			ATCH_FILE_SN = #{atchFileSn}
+	</select>
+	
+	<insert id="insertSubmitTestAnswer" parameterType="List">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.insertSubmitTestAnswer */
+		INSERT ALL
+		<foreach collection="list" item="item" separator=" " >
+			 INTO SUBMIT_ANSWER_PAPER (STDNT_NO,TEST_QUES_NO,TEST_SE,LCTRE_NO,SUBMIT_ASWPER)
+			 VALUES
+			 (#{item.stdntNo,jdbcType=VARCHAR}, #{item.testQuesNo,jdbcType=VARCHAR}, #{item.testSe,jdbcType=VARCHAR}, #{item.lctreNo,jdbcType=VARCHAR}, #{item.submitAswper,jdbcType=VARCHAR})
+		</foreach>
+		SELECT * FROM DUAL
+	</insert>
+	
+	<select id="selectTestResultInfo" parameterType="kr.ac.usu.classroom.vo.TestVO" resultType="int">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectTestResultInfo */
+		SELECT 
+			NVL(SUM(CASE WHEN
+				(SELECT TEST_ASWPER FROM TEST_ANSWER_PAPER TAP WHERE TEST_QUES_NO = SAP.TEST_QUES_NO AND LCTRE_NO = SAP.LCTRE_NO AND TEST_SE = SAP.TEST_SE)
+				=
+				SAP.SUBMIT_ASWPER
+					THEN (
+							SELECT 100/(SELECT COUNT(*) FROM TEST_ANSWER_PAPER TAP WHERE LCTRE_NO = #{lctreNo} AND TEST_SE = #{testSe})
+							FROM DUAL
+						) ELSE 0 END
+			),0)
+			FROM SUBMIT_ANSWER_PAPER SAP
+			WHERE LCTRE_NO = #{lctreNo} AND TEST_SE = #{testSe} AND STDNT_NO = #{stdntNo}
+	</select>
+	
+	<insert id="insertAssignmentFile" parameterType="kr.ac.usu.board.vo.AttatchingFileVO">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectTestResultInfo */
+		<selectKey order="BEFORE" keyProperty="atchFileNo" resultType="String">
+			SELECT
+				TO_CHAR(SYSDATE,'YYMMDD')||LPAD(NVL(MAX(SUBSTR(ATCH_FILE_NO,7)),0)+1,8,'0')
+			FROM
+				ATTACHING_FILE
+			WHERE
+				SUBSTR(ATCH_FILE_NO,1,6) = TO_CHAR(SYSDATE,'YYMMDD')
+		</selectKey>
+		INSERT INTO ATTACHING_FILE (
+			ATCH_FILE_NO
+			, ATCH_FILE_SN
+			, ATCH_FILE_NM
+			, ATCH_FILE_STRE_NM
+			, ATCH_FILE_STRE_PATH
+			, ATCH_FILE_MG
+			, ATCH_FILE_INDICT_MG
+			, ATCH_FILE_MIME_TYPE
+		) VALUES (
+			#{atchFileNo,jdbcType=VARCHAR}
+			, (SELECT NVL(MAX(ATCH_FILE_SN),0)+1 FROM ATTACHING_FILE WHERE ATCH_FILE_NO = #{atchFileNo,jdbcType=VARCHAR})
+			, #{atchFileNm,jdbcType=VARCHAR}
+			, #{atchFileStreNm,jdbcType=VARCHAR}
+			, #{atchFileStrePath,jdbcType=VARCHAR}
+			, #{atchFileMg,jdbcType=NUMERIC}
+			, #{atchFileIndictMg,jdbcType=VARCHAR}
+			, #{atchFileMimeType,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<insert id="insertAssignment" parameterType="HashMap">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectTestResultInfo */
+		INSERT INTO LECTURE_SUBMIT (
+			STDNT_NO
+			, CR_NO
+			, ATCH_FILE_NO
+		) VALUES (
+			#{id,jdbcType=VARCHAR}
+			, #{crNo,jdbcType=VARCHAR}
+			, #{atchFileNo,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<select id="selectSubmittedAssignment" resultType="kr.ac.usu.board.vo.AttatchingFileVO" parameterType="HashMap">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectTestResultInfo */
+		SELECT
+			AT.ATCH_FILE_NO
+			, ATCH_FILE_SN
+			, ATCH_FILE_NM
+			, ATCH_FILE_STRE_NM
+			, ATCH_FILE_STRE_PATH
+			, ATCH_FILE_MG
+			, ATCH_FILE_INDICT_MG
+			, ATCH_FILE_MIME_TYPE
+		FROM
+			LECTURE_SUBMIT LS
+				INNER JOIN ATTACHING_FILE AT ON (LS.ATCH_FILE_NO = AT.ATCH_FILE_NO)
+		WHERE
+			LS.STDNT_NO = #{id}
+		AND
+			LS.CR_NO = #{crNo}
+	</select>
+	
+	<resultMap type="kr.ac.usu.classroom.vo.ClassroomBoardVO" id="assignmentInfo" autoMapping="true">
+		<id property="crNo" column="CR_NO"/>
+		<association property="atchFile" javaType="kr.ac.usu.board.vo.AttatchingFileVO" autoMapping="true" />
+	</resultMap>
+	
+	<select id="selectClassroomBoard" parameterType="HashMap" resultMap="assignmentInfo">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectClassroomBoard */
+		SELECT
+			CB.CR_NO
+			, CR_SE
+			, CR_TITLE
+			, CR_CN
+			, (SELECT P.PRFSOR_NM FROM PROFESSOR P INNER JOIN LECTURE L ON (L.PRFSOR_NO = P.PRFSOR_NO) WHERE L.LCTRE_NO = (SELECT LCTRE_NO FROM CLASSROOM_BOARD WHERE CR_NO = #{crNo})) CR_WRTER
+			, CR_DATE
+			, CB.LCTRE_NO
+			, AF.ATCH_FILE_NO
+			, ATCH_FILE_SN
+			, ATCH_FILE_NM
+			, ATCH_FILE_STRE_NM
+			, ATCH_FILE_STRE_PATH
+			, ATCH_FILE_MG
+			, ATCH_FILE_INDICT_MG
+			, ATCH_FILE_MIME_TYPE
+		FROM
+			CLASSROOM_BOARD CB
+				INNER JOIN ATTENDANCE_LECTURE AL ON (CB.LCTRE_NO = AL.LCTRE_NO)
+				LEFT OUTER JOIN ATTACHING_FILE AF ON(CB.ATCH_FILE_NO = AF.ATCH_FILE_NO)
+		WHERE
+			CB.CR_NO = #{crNo}
+		AND
+			AL.STDNT_NO = #{id}
+	</select>
+	
+	<select id="selectAuthorityFile" parameterType="kr.ac.usu.board.vo.AttatchingFileVO" resultType="int">
+		/* kr.ac.usu.classroom.mapper.StudentClassRoomMapper.selectAuthorityFile */
+		SELECT
+			(
+				SELECT
+					COUNT(1)
+				FROM
+					CLASSROOM_BOARD CB
+						INNER JOIN ATTENDANCE_LECTURE AL ON(AL.LCTRE_NO = CB.LCTRE_NO)
+				WHERE
+					(AL.STDNT_NO = #{stdntNo} AND CB.ATCH_FILE_NO = #{atchFileNo})
+			)
+			+
+			(
+				SELECT
+					COUNT(1)
+				FROM
+					LECTURE_SUBMIT LS
+				WHERE
+					(LS.STDNT_NO = #{stdntNo} AND LS.ATCH_FILE_NO = #{atchFileNo})
+			)
+		FROM
+			DUAL
+	</select>
+	
+</mapper>

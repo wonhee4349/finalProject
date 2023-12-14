@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.tuition.mapper.StudentTuitionMapper">
+	
+	<resultMap type="kr.ac.usu.tuition.vo.TuitionVO" id="tuitionMap" autoMapping="true">
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+				<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+			</association>
+		</association>
+	</resultMap>
+	<select id="selectSemesterListForStudentTuition" parameterType="HashMap" resultType="HashMap">
+		/* kr.ac.usu.tuition.mapper.StudentTuitionMapper.selectSemesterListForStudentTuition */
+		SELECT
+			SEMSTR_NO "key"
+			, SUBSTR(SEMSTR_NO,1,4)||'년도 ' || SUBSTR(SEMSTR_NO,5,1)|| '학기' "value"
+		FROM
+			TUITION
+		WHERE
+			STDNT_NO = #{id}
+		AND
+			SEMSTR_NO != #{semCd}
+		ORDER BY SEMSTR_NO DESC
+	</select>
+	<select id="selectTuitionInformationForStudentWithSemesterCode" parameterType="kr.ac.usu.tuition.vo.TuitionVO" resultMap="tuitionMap">
+		/* kr.ac.usu.tuition.mapper.StudentTuitionMapper.selectTuitionInformationForStudentWithSemesterCode */
+		SELECT
+		    A.TUTN_NHT_NO
+		    , SUBSTR(A.SEMSTR_NO,1,4) TUTN_PAY_YR
+		    , SUBSTR(A.SEMSTR_NO,5,1) TUTN_PAY_SEMS 
+		    , A.STDNT_NO 
+		    , C.STDNT_NM 
+		    , E.SUBJCT_NM SKNRG_STTUS_MAJOR1 
+		    , CASE WHEN A.TUTN_PAYDE IS NOT 
+		NULL THEN '여' ELSE '부' END AS TUTN_PAY 
+		, F.CLG_NM 
+		, A.TUTN_ETRNCF 
+		, A.TUTN_TUTFEE 
+		, A.TUTN_SCHLSHIP 
+		, TO_CHAR(NVL(A.TUTN_ETRNCF,0), 'FM999,999,999,999') AS TUTN_ETRNCF_STR
+		, TO_CHAR(NVL(A.TUTN_TUTFEE,0), 'FM999,999,999,999') AS TUTN_TUTFEE_STR
+		, TO_CHAR(NVL(A.TUTN_SCHLSHIP,0), 'FM999,999,999,999') AS TUTN_SCHLSHIP_STR
+		, TO_CHAR(TO_DATE(A.TUTN_PAYDE)) TUTN_PAYDE
+		FROM
+		    TUITION A
+		        INNER JOIN STUDENT B ON (A.STDNT_NO = B.STDNT_NO)
+		        INNER JOIN STUDENT_INFORMATION C ON (B.STDNT_NO = C.STDNT_NO)
+		        INNER JOIN SCHOOL_REGISTER_STATUS D ON (B.STDNT_NO = D.STDNT_NO)
+		        INNER JOIN SUBJECT E ON (D.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO) 
+		        INNER JOIN COLLEGE F ON (E.CLG_NO = F.CLG_NO)
+		WHERE
+		    A.STDNT_NO = #{stdntNo}
+		AND
+		    A.SEMSTR_NO = #{semstrNo}
+	</select>
+	
+	
+	
+</mapper>

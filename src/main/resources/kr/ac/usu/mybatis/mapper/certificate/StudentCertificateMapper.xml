@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.certificate.mapper.StudentCertificateMapper">
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="studentMap"
+		autoMapping="true">
+		<id property="stdntNo" column="STDNT_NO" />
+		<result property="stdntNo" column="STDNT_NO" />
+		<association property="subject" autoMapping="true" />
+	</resultMap>
+
+	<!-- 학생 학적 정보 불러오기 -->
+	<select id="retrieveStudentCertificate"
+		resultType="map" parameterType="string">
+		select distinct 
+			s.stdnt_no,
+			i.stdnt_nm,
+			i.stdnt_ihidnum1,
+			i.stdnt_ihidnum2,
+			r.stdnt_no,
+			r.sknrgs_se, 
+			D1.SUBJCT_NM
+		from student s, school_register_history r, SUBJECT D1,
+		     SCHOOL_REGISTER_STATUS c, student_information i
+		where 
+		     s.stdnt_no = r.stdnt_no 
+		     and r.sknrgs_se = 1
+		     and c.SKNRG_STTUS_MAJOR1 = D1.SUBJCT_NO
+		     and s.STDNT_NO = C.STDNT_NO
+		     and s.stdnt_no = i.stdnt_no
+		     and s.stdnt_no = #{studentNo}
+	</select>
+
+</mapper>

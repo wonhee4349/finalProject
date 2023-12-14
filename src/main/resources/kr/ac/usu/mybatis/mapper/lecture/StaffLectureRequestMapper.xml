@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.lecture.mapper.StaffLectureRequestMapper">
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureRequestVO" id="lectureRequestMap" autoMapping="true">
+		<id property="lctreReqstNo" column="LCTRE_REQST_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true"/> 
+		<association property="facilitiess" javaType="kr.ac.usu.facilities.vo.FacilitiesVO" autoMapping="true" />
+		<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true" />
+		<association property="building" javaType="kr.ac.usu.facilities.vo.BuildingVO" autoMapping="true" />
+		
+	</resultMap>
+	
+	<sql id="searchFrag"> 
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'prfsorNm'">
+	    				INSTR(PRFSOR_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'courseNm'">
+	    				INSTR(COURSE_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>	    		
+	    			<otherwise>
+	    				INSTR(PRFSOR_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(COURSE_NM, #{simpleCondition.searchWord}) > 0	 
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="fromFrag">
+	   SELECT  
+		   A.LCTRE_REQST_NO 
+	      , A.LCTRE_REQST_DATE
+	      , A.LCTRE_REQST_RETURN
+	      , A.CONFM_SE
+	      , (SELECT D.COM_CODE_NM FROM COM_CODE D WHERE D.com_code_grp = 'SEC013' AND D.COM_CODE = A.CONFM_SE) CONFM_SE_NM 
+	      , A.LCTRE_SE
+	      , (SELECT D.COM_CODE_NM FROM COM_CODE D WHERE D.com_code_grp = 'SEC015' AND D.COM_CODE = A.LCTRE_SE) LCTRE_SE_NM              
+	      , (SELECT D.COM_CODE_NM FROM COM_CODE D WHERE D.com_code_grp = 'SEC014' AND D.COM_CODE = A.COMPL_SE) COMPL_SE_NM              
+	      , (SELECT D.COM_CODE_NM FROM COM_CODE D WHERE D.com_code_grp = 'SEC018' AND D.COM_CODE =  A.SEMSTR_SE) SEMSTR_SE_NM              
+	      , B.PRFSOR_NO
+	      , B.PRFSOR_NM
+	      , C.COURSE_NO
+	      , C.COURSE_NM
+	      , G.FCLTS_NO
+	      , G.FCLTS_NM
+	      , H.BULD_NO
+	      , H.BULD_NM
+		FROM 
+			LECTURE_REQUEST A INNER JOIN PROFESSOR B ON(A.PRFSOR_NO = B.PRFSOR_NO)
+			INNER JOIN COURSE C ON (A.COURSE_NO = C.COURSE_NO)
+			INNER JOIN FACILITIES G ON (A.FCLTS_NO = G.FCLTS_NO)
+			INNER JOIN BUILDING H ON (A.BULD_NO = H.BULD_NO)
+		ORDER BY CONFM_SE 
+	</sql>
+	
+	<!-- 상담 신청 목록 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="fromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectLectureRequestList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="lectureRequestMap">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="fromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureRequestVO" id="lectureRequestListMap2">
+		<result property="lctreSe" column="LCTRE_SE" />
+		<result property="fcltsNo" column="FCLTS_NO" />
+		<result property="buldNo" column="BULD_NO" />
+		<result property="lctreReqstNo" column="LCTRE_REQST_NO" />
+		<result property="lctreReqstDate" column="LCTRE_REQST_DATE" />
+		<result property="prfsorNo" column="PRFSOR_NO" />
+		<result property="courseNo" column="COURSE_NO" />
+		<result property="courseNm" column="COURSE_NM" />
+		<result property="coursePnt" column="COURSE_PNT" />
+		<result property="fcltsNm" column="FCLTS_NM" />
+		<result property="fcltsPurps" column="FCLTS_PURPS" />
+		<result property="buldNm" column="BULD_NM" />
+		<result property="complSe" column="COMPL_SE" />
+		<result property="semstrSe" column="SEMSTR_SE" />
+		<result property="confmSe" column="CONFM_SE" />
+		<result property="lctreReqstReturn" column="LCTRE_REQST_RETURN" />
+		<association property="professor" resultMap="professorMap"></association>
+		<association property="lectureActionPlanVO" resultMap="lectureActionPlanMap"></association>
+		<collection property="lectureRequestInfoVOList" resultMap="lectureRequestInfoMap"></collection>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.user.vo.ProfessorVO" id="professorMap">
+		<result property="prfsorNo" column="PRFSOR_NO" />
+		<result property="prfsorNm" column="PRFSOR_NM" />
+		<result property="prfsorPassword" column="PRFSOR_PASSWORD" />
+		<result property="prfsorIhidnum1" column="PRFSOR_IHIDNUM1" />
+		<result property="prfsorIhidnum2" column="PRFSOR_IHIDNUM2" />
+		<result property="prfsorZip" column="PRFSOR_ZIP" />
+		<result property="prfsorAdres1" column="PRFSOR_ADRES1" />
+		<result property="prfsorAdres2" column="PRFSOR_ADRES2" />
+		<result property="prfsorTelno" column="PRFSOR_TELNO" />
+		<result property="prfsorEmplmn" column="PRFSOR_EMPLMN" />
+		<result property="prfsorRetire" column="PRFSOR_RETIRE" />
+		<result property="prfsorEmplynForm" column="PRFSOR_EMPLYN_FORM" />
+		<result property="prfsorNlty" column="PRFSOR_NLTY" />
+		<result property="sexdstnSe" column="SEXDSTN_SE" />
+		<result property="subjctNo" column="SUBJCT_NO" />
+		<result property="subjctNm" column="SUBJCT_NM" />
+		<result property="subjctTelno" column="SUBJCT_TELNO" />
+		<result property="atchFileNo" column="ATCH_FILE_NO" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureActionPlanVO" id="lectureActionPlanMap">
+		<result property="lctreAcnutnoNo" column="LCTRE_ACNUTNO_NO" />
+		<result property="lctreAcnutnoGoal" column="LCTRE_ACNUTNO_GOAL" />
+		<result property="lctreAcnutnoPlan" column="LCTRE_ACNUTNO_PLAN" />
+		<result property="lctreAcnutnoRefer" column="LCTRE_ACNUTNO_REFER" />
+		<collection property="lectureEvaluationStandardVOList" resultMap="lectureEvaluationStandardMap"></collection>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureRequestInfoVO" id="lectureRequestInfoMap">
+		<result property="tmtbSe" column="TMTB_SE" />
+		<result property="lctreReqstNo" column="LCTRE_REQST_NO" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureEvaluationStandardVO" id="lectureEvaluationStandardMap">
+		<result property="scoreSe" column="SCORE_SE" />
+		<result property="lctreAcnutnoNo" column="LCTRE_ACNUTNO_NO" />
+		<result property="lctreEvlStdrReflct" column="LCTRE_EVL_STDR_REFLCT" />
+	</resultMap>
+	
+	<!-- 강의개설신청 상세조회 -->	
+	<select id="selectLectureRequestInfo" parameterType="kr.ac.usu.lecture.vo.LectureRequestVO" resultMap="lectureRequestListMap2">
+			SELECT L.LCTRE_REQST_NO
+			    ,L.LCTRE_REQST_DATE			    
+			    ,L.COURSE_NO
+			    ,(SELECT CC.COM_CODE_NM FROM COM_CODE CC WHERE CC.com_code_grp = 'SEC014' AND CC.COM_CODE = L.COMPL_SE) COMPL_SE
+			    ,(SELECT QQ.SEMSTR FROM SEMESTER QQ WHERE QQ.SEMSTR_NO = L.SEMSTR_SE) SEMSTR_SE
+			    ,(SELECT CC.COM_CODE_NM FROM COM_CODE CC WHERE CC.com_code_grp = 'SEC013' AND CC.COM_CODE = L.CONFM_SE) CONFM_SE
+			    ,L.LCTRE_REQST_RETURN
+			    ,(SELECT CC.COM_CODE_NM FROM COM_CODE CC WHERE CC.com_code_grp = 'SEC015' AND CC.COM_CODE = L.LCTRE_SE) LCTRE_SE
+			    ,L.FCLTS_NO
+			    ,L.BULD_NO
+                ,(SELECT O.COURSE_NM FROM COURSE O WHERE O.COURSE_NO = L.COURSE_NO) COURSE_NM
+                ,(SELECT Q.COURSE_PNT FROM COURSE Q WHERE Q.COURSE_NO = L.COURSE_NO) COURSE_PNT
+                ,(SELECT J.BULD_NM FROM BUILDING J WHERE J.BULD_NO = L.BULD_NO) BULD_NM
+			    ,(SELECT K.FCLTS_NM FROM FACILITIES K WHERE K.FCLTS_NO = L.FCLTS_NO) FCLTS_NM
+                ,(SELECT M.FCLTS_PURPS FROM FACILITIES M WHERE M.FCLTS_NO = L.FCLTS_NO) FCLTS_PURPS
+                ,P.PRFSOR_NO
+			    ,P.PRFSOR_NM
+			    ,(SELECT CC.COM_CODE_NM FROM COM_CODE CC WHERE CC.com_code_grp = 'SEC003' AND CC.COM_CODE = P.PRFSOR_EMPLYN_FORM) PRFSOR_EMPLYN_FORM               
+			    ,(SELECT H.SUBJCT_NM FROM SUBJECT H WHERE H.SUBJCT_NO = P.SUBJCT_NO) SUBJCT_NM
+                ,(SELECT I.SUBJCT_TELNO FROM SUBJECT I WHERE I.SUBJCT_NO = P.SUBJCT_NO) SUBJCT_TELNO
+			    ,A.LCTRE_ACNUTNO_GOAL
+			    ,A.LCTRE_ACNUTNO_PLAN
+			    ,A.LCTRE_ACNUTNO_REFER
+			    ,(SELECT CC.COM_CODE_NM FROM COM_CODE CC WHERE CC.com_code_grp = 'SEC019' AND CC.COM_CODE = V.SCORE_SE) SCORE_SE
+			    ,V.LCTRE_EVL_STDR_REFLCT			    
+			    ,(SELECT CC.COM_CODE_NM FROM COM_CODE CC WHERE CC.com_code_grp = 'SEC011' AND CC.COM_CODE = R.TMTB_SE) TMTB_SE
+			FROM 
+				LECTURE_REQUEST L INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+				                       LEFT OUTER JOIN LECTURE_ACTION_PLAN A ON (L.LCTRE_REQST_NO = A.LCTRE_ACNUTNO_NO)
+				                       LEFT OUTER JOIN LECTURE_EVALUATION_STANDARD V ON (L.LCTRE_REQST_NO = V.LCTRE_ACNUTNO_NO)
+				                       LEFT OUTER JOIN LECTURE_REQUEST_INFO R ON(L.LCTRE_REQST_NO =R.LCTRE_REQST_NO)
+			WHERE 
+				L.LCTRE_REQST_NO = #{lctreReqstNo}
+	</select>
+	<!-- 		
+	LectureRequestVO(rnum=0, lctreReqstNo=RF05824101, lctreReqstDate=null, prfsorNo=00000106, courseNo=null, complSe=,, 
+	complSeNm=null, semstrSe=20231, semstrSeNm=null, confmSe=null, confmSeNm=null, lctreReqstReturn=null, lctreSe=null, 
+	lctreSeNm=null, fcltsNo=, buldNo=null, professor=null, course=null, facilitiess=null, lctreAcnutnoNo=null, 
+	lectureRequestInfoVOList=null, lectureActionPlanVO=null, facilities=null, building=null)
+	 -->
+	<update id="updateAppliedLectureRequest" parameterType="String">
+		UPDATE lecture_request
+		SET
+		    confm_se = '02'
+		WHERE
+		     lctre_reqst_no = #{lctreReqstNo}
+	</update>
+	
+	<!-- lctreSe*(강의형태), fcltsNo, complSe, couresNo
+	LectureVO(rnum=0, buldNm=null, fcltsNm=null, semstrSeNm=null, lctreNo=null, lctreNmpr=30, lctreSe=01, fcltsNo=, 
+	prfsorNo=00000106, semstrSe=20231, complSe=,, courseNo=null, professor=null, facilities=null, course=null, 
+	timetable=null, tmtbSeNm=null, student=null, currCnt=null, coursePnt=null, courseDayOfWeek=null, 
+	courseNm=null, prfsorNm=null, currentPage=null, lctreReqstNo=RF05824102, evaStatus=null)
+	 -->
+	<insert id="insertLecture" parameterType="String">
+		INSERT INTO LECTURE (
+		     LCTRE_NO
+		   , LCTRE_NMPR
+		   , LCTRE_SE
+		   , FCLTS_NO
+		   , PRFSOR_NO
+		   , SEMSTR_SE
+		   , COMPL_SE
+		   , COURSE_NO
+		) (
+			SELECT
+			    SUBSTR(LR.LCTRE_REQST_NO,2,7)||
+			    (SELECT LPAD(NVL(MAX(SUBSTR(LCTRE_NO,8)),0)+1,2,'0')
+					FROM LECTURE L
+					WHERE SUBSTR(L.LCTRE_NO,1,7) = SUBSTR(LR.LCTRE_REQST_NO,2,7)
+				)
+			    , 30
+			    , LR.LCTRE_SE
+			    , LR.FCLTS_NO
+			    , LR.PRFSOR_NO
+			    , LR.SEMSTR_SE
+			    , LR.COMPL_SE
+			    , LR.COURSE_NO
+			FROM LECTURE_REQUEST LR
+			WHERE LR.LCTRE_REQST_NO = #{lctreReqstNo}
+		)
+	</insert>
+	<insert id="insertLectureTimeTable" parameterType="String">
+		INSERT INTO LECTURE_TIMETABLE (TMTB_SE , LCTRE_NO)
+			(SELECT TMTB_SE ,
+			    SUBSTR(LRI.LCTRE_REQST_NO,2,7)||
+						    (SELECT LPAD(NVL(MAX(SUBSTR(LCTRE_NO,8)),0),2,'0')
+								FROM LECTURE L
+								WHERE SUBSTR(L.LCTRE_NO,1,7) = SUBSTR(LRI.LCTRE_REQST_NO,2,7)
+							)
+			FROM LECTURE_REQUEST_INFO LRI WHERE LCTRE_REQST_NO = #{lctreReqstNo})
+	</insert>
+	
+	<update id="updateRefusedLectureRequest" parameterType="kr.ac.usu.lecture.vo.LectureRequestVO">
+		UPDATE lecture_request
+		SET
+		    confm_se = '03'
+		    , lctre_reqst_return = #{lctreReqstReturn}
+		WHERE
+		    lctre_reqst_no = #{lctreReqstNo}
+	</update>
+</mapper>

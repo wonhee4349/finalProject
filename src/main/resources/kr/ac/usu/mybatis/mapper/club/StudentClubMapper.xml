@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.club.mapper.StudentClubMapper">
+
+    <!-- resultMap 정의: ClubVO 클래스의 객체를 결과로 받기 위한 매핑 -->
+    <resultMap type="kr.ac.usu.club.vo.ClubVO" id="clubMap" autoMapping="true">
+		<id property="clubNo" column="CLUB_NO" />
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true" />
+		<association property="facilities" javaType="kr.ac.usu.facilities.vo.FacilitiesVO" autoMapping="true">
+		    <association property="building" javaType="kr.ac.usu.facilities.vo.BuildingVO" autoMapping="true" />
+		</association>
+	</resultMap>
+
+    <!-- 동적 검색 조건을 생성하기 위한 SQL 코드 조각 -->
+   <sql id="searchFrag"> 
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'clubNm'">
+	    				INSTR(CLUB_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'clubSe'">
+	    				INSTR(COM_CODE_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<otherwise>
+	    				INSTR(CLUB_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(COM_CODE_NM, #{simpleCondition.searchWord}) > 0
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="fromFrag">
+		SELECT
+			A.CLUB_NO					
+		    , A.CLUB_NM
+		    , C.STDNT_NM
+		    , D.FCLTS_NM
+		    , E.COM_CODE_NM CLUB_SE
+		    , G.BULD_NM 
+		    , E.COM_CODE_NM
+		FROM
+		    CLUB A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+		    INNER JOIN STUDENT_INFORMATION C ON(B.STDNT_NO = C.STDNT_NO)
+		    INNER JOIN FACILITIES D ON (A.FCLTS_NO = D.FCLTS_NO)
+			INNER JOIN COM_CODE E ON (A.CLUB_SE = E.COM_CODE)
+			INNER JOIN BUILDING G ON (D.BULD_NO = G.BULD_NO)
+		WHERE
+			E.COM_CODE_GRP = 'SEC006'
+	</sql>
+	
+
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="fromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectClubList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="clubMap">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="fromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!--  <select id="selectClubSubscribe" parameterType="kr.ac.usu.club.vo.ClubSubscribeVO" resultType="kr.ac.usu.club.vo.ClubSubscribeVO">
+		SELECT *
+		FROM CLUB_SUBSCRIBE
+		WHERE CLUB_NO = #{clubNo} AND STDNT_NO = #{stdntNo}
+	</select>
+	
+
+	<insert id="insertClubSubscribe" parameterType="kr.ac.usu.club.vo.ClubSubscribeVO">
+	    INSERT INTO CLUB_SUBSCRIPTION (CLUB_NO, STDNT_NO, CLUB_SBSCRB_DATE, CONFM_SE, CLUB_SBSCRB_CN, CLUB_SBSCRB_RETURN)
+	    VALUES (
+	        #{clubNo}, 
+	        #{student.stdntNo}, 
+	        #{clubSbscrbDate}, 
+	        #{confmSe}, 
+	        #{clubSbscrbCn}, 
+	        #{clubSbscrbReturn}
+	    )
+	</insert>-->
+	
+	
+	
+	<!-- 동아리 정보 불러오기 -->
+	<select id="selectClubInfo" resultType="kr.ac.usu.club.vo.ClubVO" parameterType="string" resultMap="clubMap">
+		SELECT
+		    A.CLUB_NO				
+		    , A.CLUB_NM
+		    , B.STDNT_NM
+		    , C.FCLTS_NM
+		    , A.CLUB_INTRCN
+		    , E.COM_CODE_NM CLUB_SE
+		    , G.BULD_NM 
+		FROM
+		    CLUB A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+		    INNER JOIN FACILITIES C ON (A.FCLTS_NO = C.FCLTS_NO)
+		    INNER JOIN COM_CODE E ON (A.CLUB_SE = E.COM_CODE)
+		    INNER JOIN BUILDING G ON (C.BULD_NO = G.BULD_NO)
+		WHERE
+		    E.COM_CODE_GRP = 'SEC006'
+		    AND A.CLUB_NO = #{clubNo}
+	</select>
+	
+	
+</mapper>

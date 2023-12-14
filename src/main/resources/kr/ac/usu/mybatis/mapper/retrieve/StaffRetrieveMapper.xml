@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.retrieve.mapper.StaffRetrieveMapper">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 12. 7.}     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+
+	<select id="selectSubjectGradePeopleCount" resultType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StaffRetrieveMapper.selectSubjectGradePeopleCount */
+		WITH SUBJECT_PEOPLE_VIEW AS (
+			SELECT
+				COUNT(STDNT_NO) CNT
+				, SRS.SKNRG_STTUS_MAJOR1 SUBCD
+				, SRS.SKNRG_STTUS_GRADE GRADE
+			FROM
+				(SELECT
+					*
+				FROM
+					SUBJECT
+				ORDER BY SUBJCT_NO ASC) S
+			    	INNER JOIN SCHOOL_REGISTER_STATUS SRS ON (S.SUBJCT_NO = SRS.SKNRG_STTUS_MAJOR1)
+			WHERE SRS.SKNRG_STTUS_GRDTN IS NULL
+			GROUP BY SRS.SKNRG_STTUS_MAJOR1 , SRS.SKNRG_STTUS_GRADE
+			ORDER BY SRS.SKNRG_STTUS_MAJOR1 ASC
+		)
+		SELECT
+			S.SUBJCT_NM
+			, SPV.CNT
+			, SPV.SUBCD
+			, SPV.GRADE
+		FROM
+			SUBJECT_PEOPLE_VIEW SPV
+				INNER JOIN SUBJECT S ON (SPV.SUBCD = S.SUBJCT_NO)
+		ORDER BY SUBCD ASC, GRADE ASC
+	</select>
+	
+	<select id="selectTotalCountAbsenceStudentThisYear" resultType="int">
+		/* kr.ac.usu.retrieve.mapper.StaffRetrieveMapper.selectTotalCountAbsenceStudentThisYear */
+		SELECT
+		    COUNT(*)
+		FROM
+		    ABSENCE_SCHOOL
+		WHERE
+		    SUBSTR(ABSSKL_DATE,1,2) = SUBSTR(TO_CHAR(SYSDATE,'YYYY'),3,2)
+	</select>
+
+	<select id="selectCountAbsenceStudentThisYearEachSubject" resultType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StaffRetrieveMapper.selectCountAbsenceStudentThisYearEachSubject */
+		WITH ABSENCEVIEW AS(
+			SELECT
+				'20'||SUBSTR(ABSSKL_DATE,1,2) YEAR
+				, AST.ABSSKL_NO
+				, AST.STDNT_NO
+				, AST.CONFM_SE
+				, AST.ABSSKL_RETURN 
+				, SRS.SKNRG_STTUS_MAJOR1 SUBCD
+			FROM
+			    ABSENCE_SCHOOL AST
+			        INNER JOIN SCHOOL_REGISTER_STATUS SRS ON (AST.STDNT_NO = SRS.STDNT_NO)
+		)
+		SELECT
+		    S.SUBJCT_NM
+		    , SUBCD
+		    , COUNT(*) CNT
+		FROM
+		    ABSENCEVIEW AV
+		        INNER JOIN SUBJECT S ON (S.SUBJCT_NO = AV.SUBCD)
+		WHERE
+		    AV.YEAR = TO_CHAR(SYSDATE,'YYYY')
+		GROUP BY SUBCD, S.SUBJCT_NM
+	</select>
+
+</mapper>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+		<!-- AccessDeniedPage -->
+		<mvc:view-controller path="/accessDenied" view-name="accessDeniedPage"/>
+
+	  <!-- 로그인 -->
+		 <mvc:view-controller path="/findPw" view-name="findPw" />
+<!-- 		 <mvc:view-controller path="/index" view-name="login" /> -->
+		 <mvc:view-controller path="/loginForm" view-name="login" />
+		 <mvc:view-controller path="/logout" view-name="logout" />
+		 
+		 
+	 <!-- 메일 -->
+		 <mvc:view-controller path="/mail" view-name="mail/mailList" />
+		 
+	  <!--/////////학생 //////////// -->	  
+<!-- 		 <mvc:view-controller path="/student" view-name="student/indexStudent" />		  -->
+		 <!--학적관리 휴학신청  -->
+		 <mvc:view-controller path="/student/vacRequestListUI" view-name="student/academic/vacRequestList" /> 		
+		 <mvc:view-controller path="/student/subjectRequestList" view-name="student/academic/registerRequestList" /> 		
+		 <!--수강신청 -->
+<!-- 		  <mvc:view-controller path="/student/classApplication" view-name="student/classApp/classApplication" />  -->
+		 <!--강의조회 -->
+		  <mvc:view-controller path="/student/class" view-name="student/course/class" /> 	
+		  <mvc:view-controller path="/student/classOnline" view-name="student/course/onlineCourses" /> 
+		 <!--강의평가 -->
+<!-- 		  <mvc:view-controller path="/student/courseEvaluation" view-name="student/course/courseEvaluation" /> 			   -->
+ 		 <!--성적 -->
+		  <mvc:view-controller path="/student/score" view-name="student/course/score" /> 				  		 
+		 <!--클래스룸 숙제  -->
+		 <mvc:view-controller path="/student/stHomework" view-name="student/classroom/homeworkList" /> 
+		 <!--클래스룸 자료  -->
+		 <mvc:view-controller path="/student/stData" view-name="student/classroom/dataDown" />		 
+		 <mvc:view-controller path="/student/stClass" view-name="student/classroom/class" />
+	     <!--마이페이지 -->
+		 <mvc:view-controller path="/student/stMypage" view-name="student/mypage/mypage" />		
+		 <!--시험 -->
+		 <mvc:view-controller path="/student/stTest" view-name="student/test/testList" />
+		 <mvc:view-controller path="/student/stTestSubmit" view-name="student/test/testSubmit" />
+		 <!--상담 -->
+		 <mvc:view-controller path="/student/consulting" view-name="student/consulting/consultingList" />
+		 <mvc:view-controller path="/student/consultingSubmit" view-name="student/consulting/consultingSubmit" />		 
+		  <!--시설물 -->
+		 <mvc:view-controller path="/student/facilities" view-name="student/facilities/facilitiesList" />
+		 <mvc:view-controller path="/student/facilitiesSubmit" view-name="student/facilities/facilitiesSubmit" />		 
+		  <!--동아리 -->
+		 <mvc:view-controller path="/student/club" view-name="student/club/clubList" />
+		 <mvc:view-controller path="/student/club" view-name="student/club/clubSubmit" />
+		  <!--장학금 -->
+		 <mvc:view-controller path="/student/scholarships" view-name="student/scholarships/scholarshipsList" />
+		  <mvc:view-controller path="/student/scholarshipStatus" view-name="student/scholarships/scholarshipsSubmit" />
+		  
+  		<!--등록금 -->
+<!-- 		  <mvc:view-controller path="/student/tuition" view-name="student/tuition/tuitionList" /> -->
+		  <mvc:view-controller path="/student/tuitionSubmit" view-name="student/tuition/tuitionSubmit" />
+	  
+		 <!--공지사항 -->
+		 <mvc:view-controller path="/student/notice" view-name="student/notice/noticeList" />
+		 
+		  <!--마이페이지 -->
+<!-- 		 <mvc:view-controller path="/student/mypage" view-name="student/mypage/mypage" /> -->
+		 
+	  
+		<mvc:view-controller path="/student/timeTableUI" view-name="iframe/studentTimeTable" />
+	  
+	  <!--교직원  -->	  
+<!-- 	 <mvc:view-controller path="/staff" view-name="staff/indexStaff" />	 -->
+	 <mvc:view-controller path="/std_regist" view-name="staff/registration/std_Registration" />	
+	 
+	 
+	 
+	   <!--교수  -->	  
+	 <mvc:view-controller path="/professor" view-name="professor/indexProfessor" />	
+</beans>

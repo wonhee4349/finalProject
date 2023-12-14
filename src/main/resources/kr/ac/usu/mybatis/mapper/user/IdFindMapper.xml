@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.user.mapper.IdFindMapper">
+
+	<select id="findIdFromNameAndSsn1AndSsn2" parameterType="HashMap" resultType="String">
+		WITH USERVIEW AS (
+			SELECT
+				S.STDNT_NO ID
+				, S.STDNT_PASSWORD PASS
+				, STDNT_NM NAME
+				, STDNT_IHIDNUM1 SSN1
+				, STDNT_IHIDNUM2 SSN2
+			FROM
+				STUDENT S INNER JOIN STUDENT_INFORMATION SI ON (S.STDNT_NO = SI.STDNT_NO)
+			UNION ALL
+			SELECT
+				PRFSOR_NO ID
+				, PRFSOR_PASSWORD PASS
+				, PRFSOR_NM NAME
+				, PRFSOR_IHIDNUM1 SSN1
+				, PRFSOR_IHIDNUM2 SSN2
+			FROM
+				PROFESSOR
+			UNION ALL
+			SELECT
+				SKLSTF_NO ID
+				, SKLSTF_PASSWORD PASS
+				, SKLSTF_NM NAME
+				, SKLSTF_IHIDNUM1 SSN1
+				, SKLSTF_IHIDNUM2 SSN2
+			FROM STAFF
+			)
+		SELECT
+			ID
+		FROM
+			USERVIEW
+		WHERE
+			NAME = #{name}
+		AND
+			SSN1 = #{ssn1}
+		AND
+			SSN2 = #{ssn2}
+	</select>
+
+	<select id="findPassWord" resultType="int" parameterType="HashMap">
+		WITH USERVIEW AS (
+			SELECT
+				S.STDNT_NO ID
+				, S.STDNT_PASSWORD PASS
+				, STDNT_NM NAME
+				, STDNT_IHIDNUM1 SSN1
+				, STDNT_IHIDNUM2 SSN2
+			FROM
+				STUDENT S INNER JOIN STUDENT_INFORMATION SI ON (S.STDNT_NO = SI.STDNT_NO)
+			UNION ALL
+			SELECT
+				PRFSOR_NO ID
+				, PRFSOR_PASSWORD PASS
+				, PRFSOR_NM NAME
+				, PRFSOR_IHIDNUM1 SSN1
+				, PRFSOR_IHIDNUM2 SSN2
+			FROM
+				PROFESSOR
+			UNION ALL
+			SELECT
+				SKLSTF_NO ID
+				, SKLSTF_PASSWORD PASS
+				, SKLSTF_NM NAME
+				, SKLSTF_IHIDNUM1 SSN1
+				, SKLSTF_IHIDNUM2 SSN2
+			FROM STAFF
+			)
+		SELECT
+			COUNT(1)
+		FROM
+			USERVIEW
+		WHERE
+			ID = #{id}
+		AND
+			NAME = #{name}
+		AND
+			SSN1 = #{ssn1}
+		AND
+			SSN2 = #{ssn2}
+		
+	</select>
+	<update id="updatePassWord" parameterType="HashMap">
+		UPDATE ${TABLE} SET ${COLS1} = #{pass} WHERE ${COLS2} = #{id}
+	</update>
+
+</mapper>

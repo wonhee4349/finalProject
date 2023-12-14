@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.score.mapper.ProfessorScoreMapper">
+	
+	<!-- 성적관리 교수 강의목록 select Option 용 -->
+	<resultMap type="kr.ac.usu.lecture.vo.LectureVO" id="scoreLectureMap" autoMapping="true">
+		<id property="lctreNo" column="LCTRE_NO"/>
+		<association property="facilities" javaType="kr.ac.usu.facilities.vo.FacilitiesVO" autoMapping="true" >
+			<association property="building" javaType="kr.ac.usu.facilities.vo.BuildingVO" autoMapping="true">
+				<result property="buldNo" column="BULD_NO"/>
+			</association>
+		</association>
+		<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true" />
+		<collection property="timetable" ofType="kr.ac.usu.lecture.vo.LectureTimetableVO" >
+			<result column="TMTB_SE" property="tmtbSe"/>
+		</collection>
+	</resultMap>
+	<select id="selectScoreProfessorLecture" parameterType="String" resultMap="scoreLectureMap" >
+		SELECT DISTINCT   L.LCTRE_NO
+                        , L.LCTRE_NMPR
+                        , L.PRFSOR_NO
+                        , L.COURSE_NO
+                        , L.SEMSTR_SE
+                        , K.SEMSTR_YR
+                        , K.SEMSTR    
+                        , (SELECT A.COM_CODE_NM FROM COM_CODE A WHERE A.COM_CODE_GRP = 'SEC015' AND A.COM_CODE = L.LCTRE_SE) LCTRE_SE
+                        , (SELECT B.COM_CODE_NM FROM COM_CODE B WHERE B.COM_CODE_GRP = 'SEC014' AND B.COM_CODE = L.COMPL_SE) COMPL_SE
+                        , (SELECT F.FCLTS_NM FROM FACILITIES F WHERE F.FCLTS_NO = L.FCLTS_NO) FCLTS_NM
+                        , (SELECT O.BULD_NM FROM BUILDING O, FACILITIES F WHERE O.BULD_NO = F.BULD_NO AND F.FCLTS_NO = L.FCLTS_NO) BULD_NM
+                        , U.COURSE_NM
+                        , U.COURSE_PNT
+                        , (SELECT N.COM_CODE_NM FROM COM_CODE N WHERE N.COM_CODE_GRP = 'SEC011' AND N.COM_CODE = V.TMTB_SE ) TMTB_SE
+ 
+		FROM   LECTURE L INNER JOIN SEMESTER K ON (K.SEMSTR_NO = L.SEMSTR_SE)
+                         INNER JOIN COURSE U ON (L.COURSE_NO = U.COURSE_NO)
+                         INNER JOIN LECTURE_TIMETABLE V ON (L.LCTRE_NO = V.LCTRE_NO)
+                  
+       WHERE L.PRFSOR_NO= #{prfsorNo,jdbcType=VARCHAR}
+         AND K.SEMSTR_YR = TO_CHAR(SYSDATE, 'YYYY')
+         AND K.SEMSTR =  CASE
+		                    WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 1 AND 6 AND K.SEMSTR = 1 THEN 1
+		                    WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 7 AND 12 AND K.SEMSTR = 2 THEN 2
+		                END
+		ORDER BY TMTB_SE ASC
+	</select>
+	
+	<!-- 성적 이의신청 목록 -->
+	<resultMap type="kr.ac.usu.score.vo.ScoreObjectionVO" id="scoreObjectionMap" autoMapping="true">
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true" >
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true" />
+		</association>
+		
+	</resultMap>
+	<select id="selectScoreObjectionList" parameterType="String" resultMap="scoreObjectionMap">
+		SELECT DISTINCT   		  O.STDNT_NO
+				                , O.LCTRE_NO
+				                , O.SCORE_OBJC_CN
+				                , (SELECT D.COM_CODE_NM FROM COM_CODE D WHERE D.com_code_grp = 'SEC013' AND D.COM_CODE = O.CONFM_SE) CONFM_SE
+		                        , (SELECT D.COM_CODE FROM COM_CODE D WHERE D.com_code_grp = 'SEC013' AND D.COM_CODE = O.CONFM_SE) CONFM
+				                , O.SCORE_OBJC_RETURN
+			                    , I.STDNT_NM
+				                , I.STDNT_TELNO
+		                        , R.SKNRG_STTUS_GRADE
+				                ,(SELECT SUBJCT_NM FROM SUBJECT Y WHERE Y.SUBJCT_NO = R.SKNRG_STTUS_MAJOR1) SUBJCT_NM   
+				                        
+				FROM SCORE_OBJECTION O  INNER JOIN STUDENT_INFORMATION I ON (I.STDNT_NO = O.STDNT_NO)
+		                                INNER JOIN SCHOOL_REGISTER_STATUS R ON (R.STDNT_NO = O.STDNT_NO)
+				                        
+				WHERE O.LCTRE_NO = #{lctreNo,jdbcType=VARCHAR}
+				ORDER BY CONFM , R.SKNRG_STTUS_GRADE
+	</select>
+	
+	<resultMap type="kr.ac.usu.score.vo.ScoreObjectionVO" id="scoreObjectionDetailViewMap">
+		<result property="stdntNo" column="STDNT_NO" />
+		<result property="lctreNo" column="LCTRE_NO" />
+		<result property="scoreObjcCn" column="SCORE_OBJC_CN" />
+		<result property="confmSe" column="CONFM_SE" />
+		<result property="scoreObjcReturn" column="SCORE_OBJC_RETURN" />
+		<association property="student" resultMap="studentMap"></association>
+		<collection property="scoreVO" resultMap="scoreMap"></collection>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="studentMap">
+		<result property="stdntNo" column="STDNT_NO" />
+		<result property="stdntNm" column="STDNT_NM" />
+		<result property="stdntTelno" column="STDNT_TELNO" />
+		<result property="subjctNm" column="SUBJCT_NM" />
+		<result property="sknrgSttusGrade" column="SKNRG_STTUS_GRADE" />
+		<result property="sknrgSttusMajor1" column="SKNRG_STTUS_MAJOR1" />
+		<result property="sknrgSttusMajor2" column="SKNRG_STTUS_MAJOR2" />
+		<result property="sknrgSttusMinor" column="SKNRG_STTUS_MINOR" />
+		<result property="sknrgSttusEntsch" column="SKNRG_STTUS_ENTSCH" />
+		<result property="sknrgSttusGrdtn" column="SKNRG_STTUS_GRDTN" />
+		<result property="sknrgSttusEnterenceSe" column="SKNRG_STTUS_ENTERENCE_SE" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.score.vo.ScoreVO" id="scoreMap">
+		<result property="scoreSe" column="SCORE_SE" />
+		<result property="stdntNo" column="STDNT_NO" />
+		<result property="lctreNo" column="LCTRE_NO" />
+		<result property="scoreScore" column="SCORE_SCORE" />
+	</resultMap>
+	
+	<!-- 성적이의신청 상세내역  -->
+	<select id="selectScoreObjectionDetailView" parameterType="kr.ac.usu.lecture.vo.AttendanceLectureVO" resultMap="scoreObjectionDetailViewMap">
+		SELECT O.LCTRE_NO, O.STDNT_NO, O.SCORE_OBJC_CN, O.SCORE_OBJC_RETURN
+		     , (SELECT D.COM_CODE_NM FROM COM_CODE D WHERE D.COM_CODE_GRP = 'SEC013' AND D.COM_CODE = O.CONFM_SE) CONFM_SE
+		     , (SELECT X.COM_CODE_NM FROM COM_CODE X WHERE X.COM_CODE_GRP = 'SEC019' AND X.COM_CODE = A.SCORE_SE) SCORE_SE
+		     , A.SCORE_SCORE
+		     , (SELECT I.STDNT_NM FROM STUDENT_INFORMATION I WHERE I.STDNT_NO = O.STDNT_NO) STDNT_NM
+		     , (SELECT J.STDNT_TELNO FROM STUDENT_INFORMATION J WHERE J.STDNT_NO = O.STDNT_NO) STDNT_TELNO
+		     , R.SKNRG_STTUS_GRADE
+		     , R.SKNRG_STTUS_MAJOR1
+		     , (SELECT C.SUBJCT_NM FROM SUBJECT C WHERE C.SUBJCT_NO = R.SKNRG_STTUS_MAJOR1) SUBJCT_NM
+		     , T.PRINT_SCORE
+             , T.CAL_SCORE
+		FROM   SCORE_OBJECTION O, SCORE A, SCHOOL_REGISTER_STATUS R, SCORE_CHART T
+		WHERE  O.STDNT_NO = A.STDNT_NO 
+		AND    O.LCTRE_NO = A.LCTRE_NO
+		AND    O.STDNT_NO = R.STDNT_NO
+		AND    A.SCORE_SCORE &gt;= T.MIN_SCORE AND A.SCORE_SCORE &lt;= T.MAX_SCORE
+		AND    O.LCTRE_NO = #{lctreNo,jdbcType=VARCHAR}
+		AND    O.STDNT_NO = #{stdntNo,jdbcType=VARCHAR}
+	</select>
+	<!-- 성적이의신청 반려  -->
+	<update id="updateRefuseScoreObjection" parameterType="kr.ac.usu.score.vo.ScoreObjectionVO">
+		
+	 UPDATE   SCORE_OBJECTION
+		SET   CONFM_SE = #{confmSe,jdbcType=VARCHAR}
+		    , SCORE_OBJC_RETURN = #{scoreObjcReturn,jdbcType=VARCHAR}
+		    
+		WHERE STDNT_NO = #{stdntNo,jdbcType=VARCHAR}
+		  AND LCTRE_NO = #{lctreNo,jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 성적이의신청 정정  -->
+	<update id="updateResetScoreObjection" parameterType="kr.ac.usu.score.vo.ScoreObjectionVO">
+		
+	 UPDATE   SCORE_OBJECTION
+		SET   CONFM_SE = #{confmSe,jdbcType=VARCHAR}
+		    , SCORE_OBJC_RETURN = #{scoreObjcReturn,jdbcType=VARCHAR}
+		    
+		WHERE STDNT_NO = #{stdntNo,jdbcType=VARCHAR}
+		  AND LCTRE_NO = #{lctreNo,jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 성적이의신청 정정에 관한 점수 변경 -->
+	<update id="updateResetScore" parameterType="kr.ac.usu.score.vo.ScoreVO">
+		
+		UPDATE SCORE
+		   SET SCORE_SCORE = #{scoreScore,jdbcType=NUMERIC}
+		 WHERE SCORE_SE = #{scoreSe,jdbcType=VARCHAR}
+		   AND STDNT_NO = #{stdntNo,jdbcType=VARCHAR}
+		   AND LCTRE_NO = #{lctreNo,jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 성적등록 수강학생 리스트 -->
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="ScoreRegistrationStudentListMap" autoMapping="true">
+		<id property="stdntNo" column="STDNT_NO"/>
+		<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true" />
+		<collection property="scoreVO" ofType="kr.ac.usu.score.vo.ScoreVO" autoMapping="true"/>
+	</resultMap>
+	<select id="selectScoreRegistrationStudentList" parameterType="String" resultMap="ScoreRegistrationStudentListMap" >
+		SELECT   L.LCTRE_NO
+		       , A.STDNT_NO
+		       , (SELECT S.STDNT_NM FROM STUDENT_INFORMATION S WHERE S.STDNT_NO = A.STDNT_NO) STDNT_NM
+		       , (SELECT S.STDNT_TELNO FROM STUDENT_INFORMATION S WHERE S.STDNT_NO = A.STDNT_NO) STDNT_TELNO
+		       , (SELECT DISTINCT W.COM_CODE_NM FROM COM_CODE W, STUDENT_INFORMATION S WHERE W.COM_CODE_GRP = 'SEC001' AND W.COM_CODE = S.SEXDSTN_SE AND ROWNUM = 1) SEXDSTN_SE
+		       , (SELECT R.SKNRG_STTUS_GRADE FROM SCHOOL_REGISTER_STATUS R WHERE R.STDNT_NO = A.STDNT_NO) SKNRG_STTUS_GRADE
+		       , (SELECT DISTINCT T.SUBJCT_NM FROM SCHOOL_REGISTER_STATUS R, SUBJECT T WHERE R.STDNT_NO = A.STDNT_NO AND T.SUBJCT_NO = R.SKNRG_STTUS_MAJOR1 AND ROWNUM = 1) SKNRG_STTUS_MAJOR1
+		       , E.SCORE_SE
+		       , E.SCORE_SCORE
+		       
+		 FROM LECTURE L INNER JOIN ATTENDANCE_LECTURE A ON (A.LCTRE_NO = L.LCTRE_NO)
+		      LEFT OUTER JOIN SCORE E ON (E.LCTRE_NO =L.LCTRE_NO AND E.STDNT_NO = A.STDNT_NO)
+		WHERE L.LCTRE_NO = #{lctreNo,jdbcType=VARCHAR}
+		ORDER BY   E.SCORE_SCORE NULLS FIRST
+                 , SKNRG_STTUS_GRADE
+				 , STDNT_NM
+	</select>
+	
+	<!-- 성적등록창에 강의평가기준 보여주기 -->
+	<select id="selectLectureEvaluationStandard" parameterType="String" resultType="kr.ac.usu.lecture.vo.LectureEvaluationStandardVO">
+		SELECT   (SELECT D.COM_CODE_NM FROM COM_CODE D WHERE D.COM_CODE_GRP = 'SEC019' AND D.COM_CODE = SCORE_SE) SCORE_SE
+		       , LCTRE_ACNUTNO_NO
+		       , LCTRE_EVL_STDR_REFLCT
+		       
+		FROM     LECTURE_EVALUATION_STANDARD
+		
+		WHERE    SUBSTR(LCTRE_ACNUTNO_NO,2) =  #{lctreNo,jdbcType=VARCHAR}
+		ORDER BY SCORE_SE ASC
+	</select>
+	
+	<!-- 성적등록 -->
+	<insert id="insertScoreRegistration" parameterType="kr.ac.usu.score.vo.ScoreVO" >
+		INSERT INTO SCORE
+		(
+		     SCORE_SE
+		   , STDNT_NO
+		   , LCTRE_NO
+		   , SCORE_SCORE
+		)
+		VALUES(
+	       	 #{scoreSe,jdbcType=VARCHAR}
+		   , #{stdntNo,jdbcType=VARCHAR}
+		   , #{lctreNo,jdbcType=VARCHAR}
+		   , #{scoreScore,jdbcType=NUMERIC}
+		    
+		)
+	</insert>
+	
+</mapper>

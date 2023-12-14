@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.facilities.mapper.StudentFacilitiesRequestMapper">
+	<resultMap type="kr.ac.usu.facilities.vo.BuildingVO"
+		id="buildingMap" autoMapping="true">
+		<id property="buldNo" column="BULD_NO" />
+		<association property="college"
+			javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true" />
+	</resultMap>
+
+	<resultMap type="kr.ac.usu.facilities.vo.FacilitiesVO"
+		id="facilitiesMap" autoMapping="true">
+		<id property="fcltsNo" column="FCLTS_NO" />
+		<association property="building"
+			javaType="kr.ac.usu.facilities.vo.BuildingVO" autoMapping="true" />
+	</resultMap>
+	
+	
+	
+	
+	<insert id="createFacilitiesRequest"
+	parameterType="kr.ac.usu.facilities.vo.FacilitiesRequestVO">
+	INSERT INTO FacilitiesRequest (
+	FCLTS_REQST_NO,
+	FCLTS_REQST_APPLCNT,
+	FCLTS_REQST_PURPS,
+	CONFM_SE,
+	FCLTS_REQST_RETURN,
+	FCLTS_NO,
+	TMTB_SE,
+	FCLTS_REQST_DATE
+	) VALUES (
+	#{fcltsReqstNo},
+	#{fcltsReqstApplcnt},
+	#{fcltsReqstPurps},
+	#{confmSe},
+	#{fcltsReqstReturn},
+	#{fcltsNo},
+	#{tmtbSe},
+	#{fcltsReqstDate}
+	);
+
+
+</insert>
+
+
+
+</mapper>

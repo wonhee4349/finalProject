@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.course.mapper.StaffCourseRequestMapper">
+	
+	<resultMap type="kr.ac.usu.course.vo.CourseRequestVO" id="courseRequestMap" autoMapping="true">
+		<id property="courseReqstNo" column="COURSE_REQST_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true" />
+			</association>
+	</resultMap>
+	
+	<sql id="searchFrag"> 
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'prfsorNm'">
+	    				INSTR(PRFSOR_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'courseReqstNm'">
+	    				INSTR(COURSE_REQST_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>	    		
+	    			<otherwise>
+	    				INSTR(PRFSOR_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(COURSE_REQST_NM, #{simpleCondition.searchWord}) > 0	 
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="fromFrag">
+	    SELECT
+		    A.COURSE_REQST_NO
+            , B.PRFSOR_NO
+           , B.PRFSOR_NM
+            , A.COURSE_REQST_NM
+            , A.COURSE_REQST_DATE
+            , A.COMPL_SE
+            , A.CONFM_SE
+            , A.COURSE_REQST_RETURN
+            , A.COURSE_PNT
+            , E.SUBJCT_NO
+            , E.SUBJCT_NM
+            , C.COM_CODE_NM CONFM_SE_NM
+            , F.COM_CODE_NM COMPL_SE_NM
+		FROM
+		    COURSE_REQUEST A INNER JOIN PROFESSOR B ON(A.PRFSOR_NO = B.PRFSOR_NO)
+			INNER JOIN COM_CODE C ON (A.CONFM_SE = C.COM_CODE)
+			INNER JOIN COM_CODE F ON (A.COMPL_SE = F.COM_CODE)
+            INNER JOIN SUBJECT E ON (A.SUBJCT_NO = E.SUBJCT_NO)
+		WHERE
+			  C.COM_CODE_GRP = 'SEC013'
+		        AND F.COM_CODE_GRP = 'SEC014'
+		ORDER BY
+            CONFM_SE
+	</sql>
+	
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="fromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectCourseRequestList" resultType="kr.ac.usu.course.vo.CourseRequestVO"
+			parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="courseRequestMap">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="fromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<select id="selectCourseRequestInfo" resultMap="courseRequestMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT
+		        A.COURSE_REQST_NO
+            , B.PRFSOR_NO
+            , B.PRFSOR_NM
+            , A.COURSE_REQST_NM
+            , A.COURSE_REQST_DATE
+            , A.COMPL_SE
+            , A.CONFM_SE
+            , A.COURSE_REQST_RETURN
+            , A.COURSE_PNT
+            , E.SUBJCT_NO
+            , E.SUBJCT_NM
+            , C.COM_CODE_NM CONFM_SE_NM
+            , F.COM_CODE_NM COMPL_SE_NM
+		FROM
+		    COURSE_REQUEST A 
+		    INNER JOIN PROFESSOR B ON(A.PRFSOR_NO = B.PRFSOR_NO)
+			INNER JOIN COM_CODE C ON (A.CONFM_SE = C.COM_CODE)
+			INNER JOIN COM_CODE F ON (A.COMPL_SE = F.COM_CODE)
+            INNER JOIN SUBJECT E ON (A.SUBJCT_NO = E.SUBJCT_NO)
+		WHERE
+			  C.COM_CODE_GRP = 'SEC013'
+		        AND F.COM_CODE_GRP = 'SEC014'
+		        AND A.COURSE_REQST_NO = #{courseReqstNo}
+		) A
+	</select>
+				
+	
+	<update id="updateAppliedCourseRequest" parameterType="kr.ac.usu.course.vo.CourseRequestVO">
+		UPDATE course_request
+		SET
+		    confm_se = '02'
+		WHERE
+		     course_reqst_no = #{courseReqstNo}
+	</update>
+	
+	
+	<insert id="insertCourse" parameterType="kr.ac.usu.course.vo.CourseVO">
+	<selectKey keyProperty="courseNo" order="BEFORE" resultType="String">
+	select SUBSTR(#{courseReqstNo}, 2, 1)||lpad(nvl(max(substr(course_no,2)),0)+1,3,'0')
+	from course
+	where substr(course_no,1,1) = SUBSTR(#{courseReqstNo}, 2, 1)
+	</selectKey>
+	
+		INSERT INTO course (
+		     course_no
+		    , course_nm
+		    , course_pnt
+		    , compl_se
+		) VALUES (
+		#{courseNo, jdbcType = VARCHAR}
+        , #{courseReqstNm, jdbcType = VARCHAR}
+        , #{coursePnt, jdbcType = VARCHAR}
+        , #{complSe, jdbcType = VARCHAR}
+		)
+	</insert>
+	
+	<update id="updateRefusedCourseRequest" parameterType="kr.ac.usu.course.vo.CourseRequestVO">
+		UPDATE course_request
+		SET
+		    confm_se = '03'
+		    , course_reqst_return = #{courseReqstReturn}
+		WHERE
+		    course_reqst_no = #{courseReqstNo}
+	</update>
+</mapper>

@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.score.mapper.StudentScoreMapper">
+	<resultMap type="kr.ac.usu.score.vo.ScoreVO" id="scoreMap" autoMapping="true">
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true" />
+		<association property="lecture" javaType="kr.ac.usu.lecture.vo.LectureVO" autoMapping="true">
+			<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true"/>
+		</association>
+		<association property="scoreObjection" javaType="kr.ac.usu.score.vo.ScoreObjectionVO" autoMapping="true" />
+	</resultMap>
+
+	<select id="selectSemCdList" parameterType="HashMap" resultType="HashMap">
+		/* kr.ac.usu.score.mapper.StudentScoreMapper.selecteSemCdList */
+		SELECT DISTINCT
+		    '20'||SUBSTR(LCTRE_NO,5,2) || '년도' || SUBSTR(LCTRE_NO,7,1) || '학기' AS SEM_NM
+		    , '20'||SUBSTR(LCTRE_NO,5,3) AS SEM_CD
+		FROM
+		    SCORE
+		WHERE
+		    STDNT_NO = #{id}
+		AND
+		    '20' || SUBSTR(LCTRE_NO,5,3) != #{semCd}
+		ORDER BY 1,2
+	</select>
+
+	<select id="selectScoreList" parameterType="HashMap" resultMap="scoreMap">
+		/* kr.ac.usu.score.mapper.StudentScoreMapper.selectScoreList */
+		WITH SCOREVIEW AS(
+			SELECT
+				S.LCTRE_NO
+			    , TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+												INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		), COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		SELECT
+			(SELECT PRINT_SCORE 
+		    FROM
+		    	SCORE_CHART
+		    WHERE 
+				SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+		    ) PRINT_SCORE
+		    , C.COURSE_NM
+		    , L.LCTRE_NO
+		    , C.COURSE_PNT || '학점' COURSE_PNT
+		    , CV.COM_CODE_NM COMPL_SE
+		    , SO.CONFM_SE 
+		FROM
+			SCOREVIEW SV INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+							INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+		                    INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+		                    LEFT OUTER JOIN (SELECT * FROM SCORE_OBJECTION WHERE STDNT_NO = #{id}) SO ON (L.LCTRE_NO = SO.LCTRE_NO)
+		WHERE
+			L.SEMSTR_SE = #{semCd}
+		ORDER BY COURSE_NM ASC
+	</select>
+	<select id="selectCalScore" parameterType="HashMap" resultType="double">
+		/* kr.ac.usu.score.mapper.StudentScoreMapper.selectCalScore */
+		WITH SCOREVIEW AS(
+			SELECT
+				S.LCTRE_NO
+			    , TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+												INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		), COMPLVIEW AS (
+            SELECT
+                COM_CODE,
+                COM_CODE_GRP,
+                COM_CODE_NM,
+                COM_CODE_DESC,
+                USE_YN,
+                COM_CODE_SEQ,
+                UPPER_CODE_GRP,
+                UPPER_COM_CODE
+            FROM
+                COM_CODE
+            WHERE
+                COM_CODE_GRP = 'SEC014'
+        ), TARGETVIEW AS 
+		(
+			SELECT
+				(SELECT CAL_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) CAL_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+	            , C.COURSE_PNT
+	            , CV.COM_CODE_NM COMPL_SE
+			FROM
+				SCOREVIEW SV INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+								INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+	                            INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+			WHERE
+	            L.SEMSTR_SE = #{semCd}
+        ), TARGETVIEW2 AS(
+	        SELECT *
+	        FROM TARGETVIEW
+	        WHERE CAL_SCORE != 0
+        )
+        SELECT
+        	NVL((ROUND((SUM(CAL_SCORE*COURSE_PNT)/SUM(COURSE_PNT))*10))/10,-1)
+        FROM
+        	TARGETVIEW2
+	</select>
+	
+	<select id="selectAvailabilityForSelectCurrentSemesterScore" parameterType="HashMap" resultType="String">
+		/* kr.ac.usu.score.mapper.StudentScoreMapper.selectAvailabilityForSelectCurrentSemesterScore */
+		SELECT
+			DECODE
+				(
+					(
+						WITH LECTURE_EVAULATION_VIEW AS (
+							SELECT * FROM LECTURE_EVAULATION WHERE STDNT_NO = #{id}
+						)
+						SELECT COUNT(*)
+						FROM
+							ATTENDANCE_LECTURE AL
+								INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+								INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+								INNER JOIN LECTURE_EVAULATION_VIEW LEV ON (AL.LCTRE_NO = LEV.LCTRE_NO)
+						WHERE
+							l.SEMSTR_SE = #{semCd}
+						AND
+							AL.STDNT_NO = #{id}
+					)
+					,(
+						(
+							SELECT DISTINCT
+								COUNT(AL.LCTRE_NO)
+							FROM
+								ATTENDANCE_LECTURE AL
+									INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+							WHERE
+								L.SEMSTR_SE = #{semCd}
+							AND
+								AL.STDNT_NO = #{id}
+						) * (SELECT COUNT(*) FROM LECTURE_EVAULATION_ITEM)
+					)
+					,'OK'
+					,'NO'
+				)
+			FROM
+				DUAL
+	</select>
+	<select id="selectScoreObjectionInformation" resultType="kr.ac.usu.score.vo.ScoreObjectionVO" parameterType="kr.ac.usu.score.vo.ScoreObjectionVO">
+		/* kr.ac.usu.score.mapper.StudentScoreMapper.selectScoreObjectionInformation */
+		WITH COMMVIEW AS (
+			SELECT
+				COM_CODE
+				, COM_CODE_GRP
+				, COM_CODE_NM
+				, COM_CODE_DESC
+				, USE_YN
+				, COM_CODE_SEQ
+				, UPPER_CODE_GRP
+				, UPPER_COM_CODE
+			FROM
+				COM_CODE
+			WHERE
+				COM_CODE_GRP = 'SEC013'
+		)
+		SELECT
+			STDNT_NO
+			, LCTRE_NO
+			, SCORE_OBJC_CN
+			, CM.COM_CODE_NM CONFM_SE
+			, SCORE_OBJC_RETURN
+		FROM SCORE_OBJECTION SO
+			INNER JOIN COMMVIEW CM ON (CM.COM_CODE = SO.CONFM_SE)
+		WHERE
+			STDNT_NO = #{stdntNo}
+		AND
+			LCTRE_NO = #{lctreNo}
+	</select>
+	
+	<insert id="insertScoreObjection" parameterType="kr.ac.usu.score.vo.ScoreObjectionVO">
+		/* kr.ac.usu.score.mapper.StudentScoreMapper.insertScoreObjection */
+		INSERT INTO	SCORE_OBJECTION
+		(
+			STDNT_NO
+			, LCTRE_NO
+			, SCORE_OBJC_CN
+			, CONFM_SE
+		)
+		VALUES(
+			#{stdntNo,jdbcType=VARCHAR}
+			, #{lctreNo,jdbcType=VARCHAR}
+			, #{scoreObjcCn,jdbcType=VARCHAR}
+			, '01'
+		)
+	</insert>
+	
+</mapper>

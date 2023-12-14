@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.user.mapper.UserImageUploadMapper">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 11. 29.}     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+
+	<select id="selectUserImageInfo" parameterType="String" resultType="kr.ac.usu.board.vo.AttatchingFileVO">
+		/* kr.ac.usu.user.mapper.UserImageUploadMapper.selectUserImageInfo */
+		WITH USERVIEW AS(
+			SELECT
+				STDNT_NO ID
+				, ATCH_FILE_NO
+			FROM
+				STUDENT_INFORMATION
+		UNION
+			SELECT
+				PRFSOR_NO ID
+				, ATCH_FILE_NO
+			FROM
+				PROFESSOR
+		UNION
+			SELECT
+				SKLSTF_NO ID
+				, ATCH_FILE_NO
+			FROM
+				STAFF
+		)
+		SELECT 
+			AF.ATCH_FILE_NO
+			, ATCH_FILE_SN
+			, ATCH_FILE_NM
+			, ATCH_FILE_STRE_NM
+			, ATCH_FILE_STRE_PATH
+			, ATCH_FILE_MG
+			, ATCH_FILE_INDICT_MG
+			, ATCH_FILE_MIME_TYPE
+		FROM
+			USERVIEW UV
+				INNER JOIN ATTACHING_FILE AF ON (AF.ATCH_FILE_NO = UV.ATCH_FILE_NO)
+		WHERE
+			UV.ID = #{id}
+	</select>
+	
+	<insert id="insertAttatchingFile" parameterType="kr.ac.usu.board.vo.AttatchingFileVO">
+		/* kr.ac.usu.user.mapper.UserImageUploadMapper.insertAttatchingFile */
+		<selectKey order="BEFORE" keyProperty="atchFileNo" resultType="String">
+			SELECT
+				TO_CHAR(SYSDATE,'YYMMDD')||LPAD(NVL(MAX(SUBSTR(ATCH_FILE_NO,7)),0)+1,8,'0')
+			FROM
+				ATTACHING_FILE
+			WHERE
+				SUBSTR(ATCH_FILE_NO,1,6) = TO_CHAR(SYSDATE,'YYMMDD')
+		</selectKey>
+		INSERT INTO ATTACHING_FILE (
+			ATCH_FILE_NO
+			, ATCH_FILE_SN
+			, ATCH_FILE_NM
+			, ATCH_FILE_STRE_NM
+			, ATCH_FILE_STRE_PATH
+			, ATCH_FILE_MG
+			, ATCH_FILE_INDICT_MG
+			, ATCH_FILE_MIME_TYPE
+		) VALUES (
+			#{atchFileNo,jdbcType=VARCHAR}
+			, (SELECT NVL(MAX(ATCH_FILE_SN),0)+1 FROM ATTACHING_FILE WHERE ATCH_FILE_NO = #{atchFileNo,jdbcType=VARCHAR})
+			, #{atchFileNm,jdbcType=VARCHAR}
+			, #{atchFileStreNm,jdbcType=VARCHAR}
+			, #{atchFileStrePath,jdbcType=VARCHAR}
+			, #{atchFileMg,jdbcType=NUMERIC}
+			, #{atchFileIndictMg,jdbcType=VARCHAR}
+			, #{atchFileMimeType,jdbcType=VARCHAR}
+		)
+	</insert>
+	<delete id="deleteOriginAttatchingFile" parameterType="kr.ac.usu.board.vo.AttatchingFileVO">
+		/* kr.ac.usu.user.mapper.UserImageUploadMapper.deleteOriginAttatchingFile */
+		DELETE FROM
+			ATTACHING_FILE
+		WHERE
+			ATCH_FILE_NO = #{atchFileNo}
+	</delete>
+	
+	<update id="updateUserImageInfo" parameterType="HashMap">
+		/* kr.ac.usu.user.mapper.UserImageUploadMapper.updateUserImageInfo */
+		UPDATE
+			${table}
+		SET
+			ATCH_FILE_NO = #{atchFileNo}
+		WHERE
+			${cols} = #{id}
+	</update>
+</mapper>

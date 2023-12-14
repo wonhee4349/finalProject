@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일          수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2023. 11. 13. 김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.student.mapper.StudentAbsenceMapper">
+	
+	<select id="selectAbsenceList" parameterType="String" resultType="kr.ac.usu.student.vo.AbsenceSchoolVO">
+		/* kr.ac.usu.student.mapper.StudentAbsenceMapper.selectAbsenceList */
+		WITH CONFMVIEW AS (
+		    SELECT
+		        COM_CODE
+		        , COM_CODE_GRP
+		        , COM_CODE_NM
+		        , COM_CODE_DESC
+		        , USE_YN
+		        , COM_CODE_SEQ
+		        , UPPER_CODE_GRP
+		        , UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC013'
+		)
+		SELECT
+		    ABSSKL_NO
+		    , SUBSTR(ABSSKL_NO,2,2)||'년 '|| SUBSTR(ABSSKL_NO,4,1)||'학기' AS REQ_SEM
+		    , STDNT_NO
+		    , /* REPLACE(ABSSKL_DATE,'/', '') */ ABSSKL_DATE
+		    , ABSSKL_CN
+		    , ABSSKL_YR
+		    , ABSSKL_SEMSTR
+		    , CV.COM_CODE_NM CONFM_SE
+		    , ABSSKL_RETURN
+		FROM
+		    ABSENCE_SCHOOL ABS INNER JOIN CONFMVIEW CV ON (ABS.CONFM_SE = CV.COM_CODE)
+		WHERE
+		    STDNT_NO = #{stdntNo}
+	</select>
+	
+	<select id="selectAbsence" parameterType="kr.ac.usu.student.vo.AbsenceSchoolVO" resultType="kr.ac.usu.student.vo.AbsenceSchoolVO">
+		/* kr.ac.usu.student.mapper.StudentAbsenceMapper.selectAbsence */
+		WITH CONFMVIEW AS (
+		    SELECT
+		        COM_CODE
+		        , COM_CODE_GRP
+		        , COM_CODE_NM
+		        , COM_CODE_DESC
+		        , USE_YN
+		        , COM_CODE_SEQ
+		        , UPPER_CODE_GRP
+		        , UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC013'
+		)
+		SELECT
+		    ABSSKL_NO
+		    , SUBSTR(ABSSKL_NO,2,2)||'년'|| SUBSTR(ABSSKL_NO,4,1)||'학기' AS REQ_SEM
+		    , STDNT_NO
+		    , REPLACE(ABSSKL_DATE,'/', '') ABSSKL_DATE
+		    , ABSSKL_CN
+		    , ABSSKL_YR
+		    , ABSSKL_SEMSTR
+		    , CV.COM_CODE_NM CONFM_SE
+		    , ABSSKL_RETURN
+		FROM
+		    ABSENCE_SCHOOL ABS INNER JOIN CONFMVIEW CV ON (ABS.CONFM_SE = CV.COM_CODE)
+		WHERE
+			ABSSKL_NO = #{abssklNo}
+		AND
+			STDNT_NO = #{stdntNo}
+	</select>
+	
+	<insert id="insertAbsence" parameterType="kr.ac.usu.student.vo.AbsenceSchoolVO">
+		/* kr.ac.usu.student.mapper.StudentAbsenceMapper.insertAbsence */
+		INSERT INTO ABSENCE_SCHOOL (
+		    ABSSKL_NO
+		    , STDNT_NO
+		    , ABSSKL_DATE
+		    , ABSSKL_CN
+		    , ABSSKL_YR
+		    , ABSSKL_SEMSTR
+		    , CONFM_SE
+		) VALUES (
+			#{abssklNo,jdbcType=VARCHAR}
+			, #{stdntNo,jdbcType=VARCHAR}
+			, SYSDATE
+			, #{abssklCn,jdbcType=VARCHAR}
+			, #{abssklYr,jdbcType=VARCHAR}
+			, #{abssklSemstr,jdbcType=VARCHAR}
+			, '01'
+		)
+	</insert>
+	
+	<update id="updateAbsence" parameterType="kr.ac.usu.student.vo.AbsenceSchoolVO">
+		/* kr.ac.usu.student.mapper.StudentAbsenceMapper.updateAbsence */
+		DELETE FROM ABSENCE_SCHOOL
+		WHERE
+			ABSSKL_NO = #{abssklNo}
+		AND
+			STDNT_NO = #{stdntNo}
+		
+	</update>
+	
+</mapper>

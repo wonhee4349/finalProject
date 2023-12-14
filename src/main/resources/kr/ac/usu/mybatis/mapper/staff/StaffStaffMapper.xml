@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.staff.mapper.StaffStaffMapper">
+
+	<resultMap type="kr.ac.usu.user.vo.StaffVO" id="staffMap"
+		autoMapping="true">
+		<id property="sklstfNo" column="SKLSTF_NO" />
+	</resultMap>
+
+	<sql id="searchPro">
+		WHERE 1=1
+		<if
+			test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.sklstfNo)">
+			AND SKLSTF_NO = #{detailCondition.sklstfNo}
+		</if>
+		<if
+			test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.sklstfNm)">
+			AND INSTR(SKLSTF_NM, #{detailCondition.sklstfNm}) > 0
+		</if>
+		<if
+			test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.sklstfSexdstn)">
+			AND INSTR(COM1, #{detailCondition.sklstfSexdstn}) > 0
+		</if>
+		<if
+			test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.sklstfNlty)">
+			AND INSTR(COM2, #{detailCondition.sklstfNlty}) > 0
+		</if>
+		<if
+			test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.emplymSe)">
+			AND INSTR(COM3, #{detailCondition.emplymSe}) > 0
+		</if>
+	</sql>
+
+	<select id="selectTotalRecord" resultType="int"
+		parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+			FROM
+			(<include refid="listFromFrag" />)
+		<include refid="searchPro" />
+	</select>
+
+	<sql id="listFromFrag">
+		WITH NATIONVIEW AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC002'
+		), GENVIEW AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC001'
+		), GOYONG AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC003'
+
+		)
+
+		SELECT
+		SKLSTF_NO,
+		SKLSTF_NM,
+		SKLSTF_PASSWORD,
+		SKLSTF_IHIDNUM1,
+		SKLSTF_IHIDNUM2,
+		SKLSTF_ZIP,
+		SKLSTF_ADRES1,
+		SKLSTF_ADRES2,
+		SKLSTF_TELNO,
+		SKLSTF_ENCPN,
+		SKLSTF_RETIRE,
+		GO.COM_CODE_NM EMPLYM_SE,
+		NA.COM_CODE_NM SKLSTF_NLTY,
+		GEN.COM_CODE_NM SKLSTF_SEXDSTN,
+		GEN.COM_CODE COM1,
+		NA.COM_CODE COM2,
+		GO.COM_CODE COM3
+
+		FROM
+		STAFF
+
+		INNER JOIN NATIONVIEW NA ON (NA.COM_CODE = SKLSTF_NLTY)
+		INNER JOIN GENVIEW
+		GEN ON (GEN.COM_CODE = SKLSTF_SEXDSTN)
+		INNER JOIN GOYONG GO ON
+		(GO.COM_CODE = EMPLYM_SE)
+		ORDER BY
+		SUBSTR(SKLSTF_NO,1,4) DESC, SKLSTF_NO
+
+	</sql>
+	
+	<select id="selectStaffList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="staffMap">
+	SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchPro" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}			
+	    ]]>
+	</select>
+
+	<select id="selectStaff" resultType="kr.ac.usu.user.vo.StaffVO"
+		parameterType="string" resultMap="staffMap">
+		WITH NATIONVIEW AS (
+			SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC002'
+			), GENVIEW AS (
+			SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC001'
+			), GOYONG AS (
+			SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC003'
+
+		)
+
+
+		SELECT
+
+		ROWNUM RNUM,
+		SKLSTF_NO,
+		SKLSTF_NM,
+		SKLSTF_PASSWORD,
+		TO_CHAR(TO_DATE(SUBSTR(SKLSTF_IHIDNUM1, 1, 6), 'YYMMDD'), '"19"YY') ||
+		'년 ' ||
+		TO_CHAR(TO_DATE(SUBSTR(SKLSTF_IHIDNUM1, 1, 6), 'YYMMDD'), 'MM') || '월 ' ||
+		TO_CHAR(TO_DATE(SUBSTR(SKLSTF_IHIDNUM1, 1, 6), 'YYMMDD'), 'DD') || '일'
+		AS SKLSTF_IHIDNUM1,
+		SKLSTF_IHIDNUM2,
+		SKLSTF_ZIP,
+		SKLSTF_ADRES1,
+		NVL(SKLSTF_ADRES2, '정보 없음') AS SKLSTF_ADRES2,
+		SKLSTF_TELNO,
+		SKLSTF_ENCPN,
+		NVL(SKLSTF_RETIRE, '정보 없음') AS SKLSTF_RETIRE,
+		GO.COM_CODE_NM EMPLYM_SE,
+		NA.COM_CODE_NM SKLSTF_NLTY,
+		GEN.COM_CODE_NM
+		SKLSTF_SEXDSTN
+
+		FROM
+		STAFF
+
+		INNER JOIN NATIONVIEW NA ON (NA.COM_CODE = SKLSTF_NLTY)
+		INNER JOIN GENVIEW
+		GEN ON (GEN.COM_CODE = SKLSTF_SEXDSTN)
+		INNER JOIN GOYONG GO ON
+		(GO.COM_CODE = EMPLYM_SE)
+		WHERE
+		SKLSTF_NO = #{sklstfNo}
+
+	</select>
+
+	<insert id="insertStaff"
+		parameterType="kr.ac.usu.user.vo.StaffVO">
+		<selectKey keyProperty="sklstfNo" order="BEFORE"
+			resultType="String">
+			SELECT
+			LPAD(TO_CHAR(TO_NUMBER(NVL(MAX(SKLSTF_NO),0))+1),8,'0')
+			FROM
+			STAFF
+		</selectKey>
+		/* kr.ac.usu.staff.mapper.StaffMapper.insertStaff */
+		INSERT INTO STAFF (
+		SKLSTF_NO,
+		SKLSTF_NM,
+		SKLSTF_PASSWORD,
+		SKLSTF_IHIDNUM1,
+		SKLSTF_IHIDNUM2,
+		SKLSTF_ZIP,
+		SKLSTF_ADRES1,
+		SKLSTF_ADRES2,
+		SKLSTF_TELNO,
+		SKLSTF_ENCPN,
+		EMPLYM_SE,
+		SKLSTF_NLTY,
+		SKLSTF_SEXDSTN
+		) VALUES (
+		#{sklstfNo,jdbcType=VARCHAR},
+		#{sklstfNm,jdbcType=VARCHAR},
+		#{sklstfNo,jdbcType=VARCHAR},
+		#{sklstfIhidnum1,jdbcType=VARCHAR},
+		#{sklstfIhidnum2,jdbcType=VARCHAR},
+		#{sklstfZip,jdbcType=VARCHAR},
+		#{sklstfAdres1,jdbcType=VARCHAR},
+		#{sklstfAdres2,jdbcType=VARCHAR},
+		#{sklstfTelno,jdbcType=VARCHAR},
+		#{sklstfEncpn,jdbcType=VARCHAR},
+		#{emplymSe,jdbcType=VARCHAR},
+		#{sklstfNlty,jdbcType=VARCHAR},
+		#{sklstfSexdstn,jdbcType=VARCHAR}
+		)
+	</insert>
+
+	<select id="selectComCode" parameterType="String"
+		resultType="kr.ac.usu.user.vo.ComCodeVO">
+		SELECT
+		COM_CODE
+		, COM_CODE_GRP
+		, COM_CODE_NM
+		, COM_CODE_DESC
+		, USE_YN
+		, COM_CODE_SEQ
+		, UPPER_CODE_GRP
+		, UPPER_COM_CODE
+		FROM
+		COM_CODE
+		WHERE
+		COM_CODE_GRP = #{comCodeGrp}
+		AND (COM_CODE_GRP != 'SEC003' OR COM_CODE_SEQ IN (1, 2))
+	</select>
+
+
+	<update id="updateStaffPassword"
+		parameterType="kr.ac.usu.user.vo.StaffVO">
+		UPDATE
+		STAFF
+		SET
+		SKLSTF_PASSWORD = #{sklstfPassword}
+		WHERE
+		SKLSTF_NO = #{sklstfNo}
+	</update>
+
+	<update id="updateStaff"
+		parameterType="kr.ac.usu.user.vo.StaffVO">
+
+		UPDATE STAFF
+		SET
+		SKLSTF_ZIP = #{sklstfZip, jdbcType=VARCHAR},
+		SKLSTF_ADRES1 = #{sklstfAdres1, jdbcType=VARCHAR},
+		SKLSTF_ADRES2 = #{sklstfAdres2, jdbcType=VARCHAR},
+		SKLSTF_TELNO = #{sklstfTelno, jdbcType=VARCHAR},
+		SKLSTF_ENCPN = #{sklstfEncpn, jdbcType=VARCHAR},
+		SKLSTF_RETIRE = #{sklstfRetire, jdbcType=VARCHAR},
+		EMPLYM_SE = #{emplymSe, jdbcType=VARCHAR},
+		SKLSTF_NLTY = #{sklstfNlty, jdbcType=VARCHAR},
+		SKLSTF_SEXDSTN = #{sklstfSexdstn, jdbcType=VARCHAR}
+		WHERE
+		SKLSTF_NO = #{sklstfNo, jdbcType=VARCHAR}
+	</update>
+</mapper>

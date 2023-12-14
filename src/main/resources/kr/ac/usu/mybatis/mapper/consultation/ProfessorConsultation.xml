@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.consultation.mapper.ProfessorConsultationMapper">
+
+
+
+	<sql id="consultationSearchFrag">
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'stdntNm'">
+	    				INSTR(STDNT_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'stdntNo'">
+	    				INSTR(STDNT_NO, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'cnsltRequstProcess'">
+	    				INSTR(CNSLT_REQUST_PROCESS, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<otherwise>
+	    				INSTR(STDNT_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(STDNT_NO, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(CNSLT_REQUST_PROCESS, #{simpleCondition.searchWord}) > 0
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+
+	<!-- 상담이력 목록 불러오기 -->
+	<select id="selectConsultationTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+			(
+			SELECT
+				    A.CNSLT_NO
+				    , B.SKLSTF_NM
+				    , C.STDNT_NM
+				    , A.STDNT_NO
+				    , TO_CHAR(TO_DATE(A.CNSLT_DATE)) CNSLT_DATE
+				    , D.COM_CODE_NM TMTB_SE
+				FROM
+				    CONSULTATION A INNER JOIN STAFF B ON (A.CNSLT_CNSLTNT = B.SKLSTF_NO)
+				    INNER JOIN STUDENT_INFORMATION C ON (A.STDNT_NO = C.STDNT_NO)
+				    LEFT OUTER JOIN COM_CODE D ON (A.TMTB_SE = D.COM_CODE)
+				    
+				WHERE
+		    D.COM_CODE_GRP = 'SEC011'
+		    )
+		<include refid="consultationSearchFrag" />
+	</select>
+	
+	<resultMap type="kr.ac.usu.consultation.vo.ConsultationVO" id="consultationtMap" autoMapping="true">
+		<id property="cnsltNo" column="CNSLT_NO"/>
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true" />
+		<association property="request" javaType="kr.ac.usu.consultation.vo.ConsultationRequestVO" autoMapping="true" />
+	</resultMap>	
+	<select id="selectProfessorConsultationList" resultMap="consultationtMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+		    SELECT
+		        A.CNSLT_NO
+		        , C.STDNT_NM
+		        , A.STDNT_NO
+                , D.CNSLT_SE
+                ,(SELECT CC.COM_CODE_NM FROM COM_CODE CC WHERE CC.com_code_grp = 'SEC007' AND CC.COM_CODE = D.CNSLT_SE) CNSLT_SE_NM
+		        , TO_CHAR(TO_DATE(A.CNSLT_DATE)) CNSLT_DATE
+		        , D.CNSLT_REQUST_CN
+		        , E.COM_CODE_NM TMTB_SE
+		        , A.CNSLT_DTLS
+		        , D.CNSLT_REQUST_DATE
+		    FROM CONSULTATION A
+		        INNER JOIN STUDENT_INFORMATION C ON (A.STDNT_NO = C.STDNT_NO)
+		        INNER JOIN CONSULTATION_REQUEST D ON (A.CNSLT_NO = D.CNSLT_NO)
+		        LEFT OUTER JOIN COM_CODE E ON (A.TMTB_SE = E.COM_CODE)
+		        
+		    WHERE
+		        E.COM_CODE_GRP = 'SEC011'
+                AND D.CNSLT_SE='01'
+			) B
+			<include refid="consultationSearchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 상담 내역 상세페이지 불러오기 -->
+	<select id="selectProfessorConsultationInfo" resultMap="consultationtMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT
+		        A.CNSLT_NO
+		        , C.STDNT_NM
+		        , A.STDNT_NO
+		        , TO_CHAR(TO_DATE(A.CNSLT_DATE)) CNSLT_DATE
+		        , D.CNSLT_REQUST_CN
+		        , E.COM_CODE_NM TMTB_SE
+		        , A.CNSLT_DTLS
+		        , D.CNSLT_REQUST_DATE
+		    FROM CONSULTATION A
+		        INNER JOIN STUDENT_INFORMATION C ON (A.STDNT_NO = C.STDNT_NO)
+		        INNER JOIN CONSULTATION_REQUEST D ON (A.CNSLT_NO = D.CNSLT_NO)
+		        LEFT OUTER JOIN COM_CODE E ON (A.TMTB_SE = E.COM_CODE)
+		        
+		    WHERE
+		        E.COM_CODE_GRP = 'SEC011'
+		        AND A.CNSLT_NO = #{cnsltNo}
+		) A
+	</select>
+	
+
+	<sql id="consultationRequestSearchFrag"> 
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'stdntNm'">
+	    				INSTR(STDNT_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'stdntNo'">
+	    				INSTR(STDNT_NO, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'cnsltRequstProcess'">
+	    				INSTR(COM_CODE_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<otherwise>
+	    				INSTR(STDNT_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(STDNT_NO, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(CNSLT_REQUST_PROCESS, #{simpleCondition.searchWord}) > 0
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="fromFrag">
+
+	</sql>
+	
+	<!-- 상담 신청 목록 불러오기 -->
+	<select id="selectConsultationRequestTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(		SELECT	
+		            A.CNSLT_NO
+		            , A.STDNT_NO
+		            , A.CNSLT_REQUST_DATE
+		            , A.CNSLT_SE
+		            , A.CNSLT_REQUST_TIME
+		            , A.CNSLT_REQUST_CN
+		            , A.CNSLT_REQUST_RETURN
+		            , B.STDNT_NM
+		            , E.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		            , C.COM_CODE_NM CNSLT_REQUST_PROCESS
+				FROM
+				    CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+					INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_PROCESS = C.COM_CODE)
+					INNER JOIN SCHOOL_REGISTER_STATUS D ON (A.STDNT_NO = D.STDNT_NO)
+		            INNER JOIN SUBJECT E ON (D.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO)
+				WHERE
+					C.COM_CODE_GRP = 'SEC013'
+		            AND A.CNSLT_SE = '01'
+		 )
+		<include refid="consultationRequestSearchFrag" />
+	</select>
+	
+	<resultMap type="kr.ac.usu.consultation.vo.ConsultationRequestVO" id="consultationRequestMap" autoMapping="true">
+		<id property="cnsltNo" column="CNSLT_NO"/>
+		<association property="consulatation" javaType="kr.ac.usu.consultation.vo.ConsultationVO" autoMapping="true" />
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true" />
+		</association>
+	</resultMap>
+	<select id="selectProfessorConsultationRequestList" resultType="kr.ac.usu.consultation.vo.ConsultationRequestVO"
+			parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="consultationRequestMap">
+		SELECT A.*
+		FROM (
+				SELECT ROWNUM RNUM, B.*
+					FROM(
+				SELECT	
+		            A.CNSLT_NO
+		            , A.STDNT_NO
+		            , A.CNSLT_REQUST_DATE
+		            , A.CNSLT_SE
+		            , A.CNSLT_REQUST_TIME
+		            , A.CNSLT_REQUST_CN
+		            , A.CNSLT_REQUST_RETURN
+		            , B.STDNT_NM
+		            , E.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		            , C.COM_CODE_NM CNSLT_REQUST_PROCESS
+				FROM
+				    CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+					INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_PROCESS = C.COM_CODE)
+					INNER JOIN SCHOOL_REGISTER_STATUS D ON (A.STDNT_NO = D.STDNT_NO)
+		            INNER JOIN SUBJECT E ON (D.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO)
+				WHERE
+					C.COM_CODE_GRP = 'SEC013'
+		            AND A.CNSLT_SE = '01'
+					) B
+			<include refid="consultationRequestSearchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 상담 신청 내역 상세페이지 불러오기 -->
+	<select id="selectProfessorConsultationRequestInfo" resultMap="consultationRequestMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT
+		        A.CNSLT_NO
+		        , B.STDNT_NO
+		        , B.STDNT_NM
+		        , A.CNSLT_REQUST_DATE
+		        , C.COM_CODE_NM CNSLT_REQUST_TIME
+		        , A.CNSLT_REQUST_CN
+		        , D.COM_CODE_NM CNSLT_REQUST_PROCESS
+		        , E.SKNRG_STTUS_GRADE
+		        , G.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		      	, A.CNSLT_REQUST_RETURN
+		    FROM
+		        CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON (A.STDNT_NO = B.STDNT_NO)
+		        INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_TIME = C.COM_CODE)
+		        INNER JOIN COM_CODE D ON (A.CNSLT_REQUST_PROCESS = D.COM_CODE)
+		        INNER JOIN SCHOOL_REGISTER_STATUS E ON (A.STDNT_NO = E.STDNT_NO)
+		        INNER JOIN SUBJECT G ON (E.SKNRG_STTUS_MAJOR1 = G.SUBJCT_NO)
+		    WHERE
+		        C.COM_CODE_GRP = 'SEC011'
+		        AND D.COM_CODE_GRP = 'SEC013'
+		        AND A.CNSLT_NO = #{cnsltNo}
+		) A
+	</select>
+	
+	<update id="udpateAllowConsultationRequest" parameterType="kr.ac.usu.consultation.vo.ConsultationRequestVO">
+		UPDATE CONSULTATION_REQUEST
+			SET
+			    CNSLT_REQUST_PROCESS = '02'
+		WHERE
+		    CNSLT_NO = #{cnsltNo,jdbcType=VARCHAR}
+	</update>
+	
+	<update id="udpateRefuseConsultationRequest" parameterType="kr.ac.usu.consultation.vo.ConsultationRequestVO">
+		UPDATE CONSULTATION_REQUEST
+			SET
+			    CNSLT_REQUST_PROCESS = '03'
+			    ,CNSLT_REQUST_RETURN = #{cnsltRequstReturn,jdbcType=VARCHAR}
+		WHERE
+		    CNSLT_NO = #{cnsltNo,jdbcType=VARCHAR}
+	</update>
+	
+	
+	
+	
+		<!-- 상담 신청 목록 불러오기 -->
+	<select id="selectRecognizeConsultationRequestTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(				SELECT	
+		            A.CNSLT_NO
+		            , A.STDNT_NO
+		            , A.CNSLT_REQUST_DATE
+		            , A.CNSLT_SE
+		            , A.CNSLT_REQUST_TIME
+		            , A.CNSLT_REQUST_CN
+		            , A.CNSLT_REQUST_RETURN
+		            , B.STDNT_NM
+		            , E.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		            , C.COM_CODE_NM CNSLT_REQUST_PROCESS
+				FROM
+				    CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+					INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_PROCESS = C.COM_CODE)
+					INNER JOIN SCHOOL_REGISTER_STATUS D ON (A.STDNT_NO = D.STDNT_NO)
+		            INNER JOIN SUBJECT E ON (D.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO)
+				WHERE
+					C.COM_CODE_GRP = 'SEC013'
+		            AND A.CNSLT_SE = '01'
+		            AND CNSLT_REQUST_PROCESS = '02'
+		            AND A.CNSLT_REQUST_RETURN IS NULL
+		            AND A.CNSLT_NO NOT IN (SELECT CNSLT_NO FROM CONSULTATION)
+		 )
+		<include refid="consultationRequestSearchFrag" />
+	</select>
+	
+	
+	<!-- 상담신청 승인완료 목록 불러오기 -->
+	<resultMap type="kr.ac.usu.consultation.vo.ConsultationRequestVO" id="RecognizeconsultationRequestMap" autoMapping="true">
+		<id property="cnsltNo" column="CNSLT_NO"/>
+		<association property="consulatation" javaType="kr.ac.usu.consultation.vo.ConsultationVO" autoMapping="true" />
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true" />
+		</association>
+	</resultMap>
+	<select id="selectProfessorRecognizeConsultationRequestList" resultType="kr.ac.usu.consultation.vo.ConsultationRequestVO"
+			parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="RecognizeconsultationRequestMap">
+				SELECT A.*
+		FROM (
+				SELECT ROWNUM RNUM, B.*
+					FROM(
+						SELECT	
+						    A.CNSLT_NO
+						    , A.STDNT_NO
+						    , A.CNSLT_REQUST_DATE
+						    , A.CNSLT_SE
+						    ,  (SELECT Q.COM_CODE_NM FROM com_code Q WHERE Q.com_code_grp = 'SEC011' AND Q.COM_CODE = A.CNSLT_REQUST_TIME) CNSLT_REQUST_TIME
+						    , A.CNSLT_REQUST_CN
+						    , A.CNSLT_REQUST_RETURN
+						    , B.STDNT_NM
+						    , E.SUBJCT_NM SKNRG_STTUS_MAJOR1
+						    , C.COM_CODE_NM CNSLT_REQUST_PROCESS
+						   
+						FROM
+						    CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+						    INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_PROCESS = C.COM_CODE)
+						    INNER JOIN SCHOOL_REGISTER_STATUS D ON (A.STDNT_NO = D.STDNT_NO)
+						    INNER JOIN SUBJECT E ON (D.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO)
+						    
+						WHERE
+						    C.COM_CODE_GRP = 'SEC013'
+						    AND A.CNSLT_SE = '01'
+						    AND A.CNSLT_REQUST_PROCESS = '02'
+						    AND A.CNSLT_REQUST_RETURN IS NULL
+						    AND A.CNSLT_NO NOT IN (SELECT CNSLT_NO FROM CONSULTATION)
+						    
+					 ) B
+					<include refid="consultationRequestSearchFrag" />
+                ) A
+                <![CDATA[
+			    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+			    ]]>
+	</select>
+	
+	<!-- 상담신청 승인완료 목록 한건의 상세정보 조회 -->
+	<select id="selectProfessorRecognizeConsultationRequestInfo" parameterType="String" resultMap="RecognizeconsultationRequestMap">
+				SELECT	
+		            A.CNSLT_NO
+		            , A.STDNT_NO
+		            , A.CNSLT_REQUST_DATE
+		            , A.CNSLT_SE
+		            ,  (SELECT Q.COM_CODE_NM FROM com_code Q WHERE Q.com_code_grp = 'SEC011' AND Q.COM_CODE = A.CNSLT_REQUST_TIME) CNSLT_REQUST_TIME
+		            , A.CNSLT_REQUST_CN
+		            , A.CNSLT_REQUST_RETURN
+		            , B.STDNT_NM
+		            , D.SKNRG_STTUS_GRADE
+		            , E.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		            , C.COM_CODE_NM CNSLT_REQUST_PROCESS
+				FROM
+				    CONSULTATION_REQUEST A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+					INNER JOIN COM_CODE C ON (A.CNSLT_REQUST_PROCESS = C.COM_CODE)
+					INNER JOIN SCHOOL_REGISTER_STATUS D ON (A.STDNT_NO = D.STDNT_NO)
+		            INNER JOIN SUBJECT E ON (D.SKNRG_STTUS_MAJOR1 = E.SUBJCT_NO)
+		            
+				WHERE
+					C.COM_CODE_GRP = 'SEC013'
+		            AND A.CNSLT_SE = '01'
+                    AND CNSLT_REQUST_PROCESS = '02'
+                    AND A.CNSLT_REQUST_RETURN IS NULL
+                    AND A.CNSLT_NO =#{cnsltNo,jdbcType=VARCHAR}
+	</select>
+	
+	
+	<select id="selectTimeTable" resultType="kr.ac.usu.user.vo.ComCodeVO">
+		SELECT 
+			D.COM_CODE_NM,D.COM_CODE 
+		FROM 
+			COM_CODE D, COM_CODE_GROUP C
+		WHERE 
+		    D.COM_CODE_GRP = C.COM_CODE_GRP
+		    AND C.COM_CODE_GRP = 'SEC011'
+		
+	</select>
+	
+	
+	
+	<!-- 상담신청 승인완료 한 상담에 대해 상담후 상담내역에 대한 등록 -->
+	<insert id="insertProfessorRecognizeConsultationRequest" parameterType="kr.ac.usu.consultation.vo.ConsultationVO">
+		INSERT INTO CONSULTATION (
+		    CNSLT_NO,
+		    CNSLT_CNSLTNT,
+		    STDNT_NO,
+		    CNSLT_DATE,
+		    TMTB_SE,
+		    CNSLT_DTLS
+		) VALUES (
+		    #{cnsltNo,jdbcType=VARCHAR}
+		    ,#{cnsltCnsltnt,jdbcType=VARCHAR}
+		    ,#{stdntNo,jdbcType=VARCHAR}
+		    ,TO_CHAR(TO_DATE(#{cnsltDate,jdbcType=DATE}, 'YYYY-MM-DD'), 'YY/MM/DD')
+		    ,#{tmtbSe,jdbcType=VARCHAR}
+		    ,#{cnsltDtls,jdbcType=CLOB}
+		)
+	</insert>	
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

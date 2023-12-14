@@ -1,0 +1,957 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.retrieve.mapper.StudentRetrieveMapper">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 12. 1.     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+	<select id="selectStudentSemesterList" parameterType="String" resultType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectStudentSemesterList */
+		SELECT DISTINCT
+		    '20'||SUBSTR(LCTRE_NO,5,2) || '년도 ' || SUBSTR(LCTRE_NO,7,1) || '학기' AS "semNm"
+		    , '20'||SUBSTR(LCTRE_NO,5,3) AS "semCd"
+		FROM
+		    ATTENDANCE_LECTURE
+		WHERE
+		    STDNT_NO = #{stdntNo}
+		ORDER BY 2 ASC
+	</select>
+	
+	<select id="selectStudentLectureListOnOneSemester" parameterType="HashMap" resultType="kr.ac.usu.lecture.vo.LectureVO">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectStudentLectureListOnOneSemester */
+		with TIMETABLEVIEW AS(
+			SELECT
+				LCTRE_NO
+				, LISTAGG(CC.COM_CODE_NM, '/') WITHIN GROUP (ORDER BY COM_CODE_NM) OVER(PARTITION BY LCTRE_NO) AS TMTB_SE_NM
+			FROM
+				LECTURE_TIMETABLE LT
+					INNER JOIN COM_CODE CC ON (CC.COM_CODE = LT.TMTB_SE)
+		)
+		SELECT DISTINCT
+		    L.LCTRE_NO  /* 강의코드 */
+		    , C.COURSE_NM /* 강의명 */
+		    , (SELECT COM_CODE_NM FROM COM_CODE CC WHERE COM_CODE_GRP = 'SEC014' AND CC.COM_CODE = L.COMPL_SE ) COMPL_SE_NM /* 이수구분 */
+		    , C.COURSE_PNT||'학점' COURSE_PNT  /* 이수학점 */
+		    , P.PRFSOR_NM /* 교수명 */
+		    , L.LCTRE_NMPR /* 정원 */
+		    , (SELECT S.SUBJCT_NM FROM SUBJECT S WHERE S.SUBJCT_NO = C.SUBJCT_NO) SUBJCT_NM /* 학과명 */
+		    , NVL(TTV.TMTB_SE_NM,(SELECT COM_CODE_NM FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015' AND COM_CODE = L.LCTRE_SE)) AS TMTB_SE_NM /* 시간표 */
+		FROM
+		    ATTENDANCE_LECTURE AL
+		        INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+		        INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+		        INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+		        LEFT OUTER JOIN TIMETABLEVIEW  TTV ON (TTV.LCTRE_NO = L.LCTRE_NO)
+		WHERE
+		    AL.STDNT_NO = #{id}
+		AND
+		    L.SEMSTR_SE = #{semCd}
+	</select>
+	
+	<select id="selectAllCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectAllCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		,MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			FROM
+				SCOREVIEW SV INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+								INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+			                    INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 총 이수학점 */
+		FROM
+			MAINSCOREVIEW
+	</select>
+	
+	<select id="selectAcceptedCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectAcceptedCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 총 취득학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+	</select>
+	<select id="selectRequiredMajorCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectRequiredMajorCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 전공필수학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			COMPL_SE = '01'
+	</select>
+	<select id="selectNotRequiredMajorCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectNotRequiredMajorCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 전공선택학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			COMPL_SE = '02'
+	</select>
+	<select id="selectRequiredCultureCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectRequiredCultureCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 교양필수학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			COMPL_SE = '03'
+	</select>
+	<select id="selectNotRequiredCultureCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectRequiredCultureCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 교양선택학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			COMPL_SE = '04'
+	</select>
+	<select id="selectMajor1CreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectMajor1CreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			    , C.SUBJCT_NO
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 1전공 학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			SUBJCT_NO = (SELECT SKNRG_STTUS_MAJOR1 FROM SCHOOL_REGISTER_STATUS WHERE STDNT_NO = #{id})
+	</select>
+	<select id="selectMajor2CreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectMajor2CreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			    , C.SUBJCT_NO
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 2전공 학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			SUBJCT_NO = (SELECT SKNRG_STTUS_MAJOR2 FROM SCHOOL_REGISTER_STATUS WHERE STDNT_NO = #{id})
+		AND
+			SUBJCT_NO IS NOT NULL
+	</select>
+	<select id="selectMinorCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectMinorCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			    , C.SUBJCT_NO
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 부전공 학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			SUBJCT_NO = (SELECT SKNRG_STTUS_MINOR FROM SCHOOL_REGISTER_STATUS WHERE STDNT_NO = #{id})
+		AND
+			SUBJCT_NO IS NOT NULL
+	</select>
+	<select id="selectOnlineLectureCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectOnlineLectureCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			    , C.SUBJCT_NO
+			    , L.LCTRE_SE
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 비대면영상 학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			LCTRE_SE = '02'
+	</select>
+	<select id="selectUntactLectureCreditPoint" resultType="int" parameterType="HashMap">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectUntactLectureCreditPoint */
+		WITH SCOREVIEW AS (
+			SELECT
+				S.LCTRE_NO
+				, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES
+					INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+					INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{id}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		)
+		, COMPLVIEW AS (
+		    SELECT
+		        COM_CODE,
+		        COM_CODE_GRP,
+		        COM_CODE_NM,
+		        COM_CODE_DESC,
+		        USE_YN,
+		        COM_CODE_SEQ,
+		        UPPER_CODE_GRP,
+		        UPPER_COM_CODE
+		    FROM
+		        COM_CODE
+		    WHERE
+		        COM_CODE_GRP = 'SEC014'
+		)
+		, MAINSCOREVIEW AS (
+			SELECT
+				(SELECT PRINT_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) PRINT_SCORE
+	            , SV.SCORE_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+			    , C.COURSE_PNT
+			    , CV.COM_CODE_NM COMPL_SE_NM
+			    , C.COMPL_SE
+			    , C.SUBJCT_NO
+			    , L.LCTRE_SE
+			FROM
+				SCOREVIEW SV
+					INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+					INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+					INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+	        WHERE
+	            L.SEMSTR_SE != #{semCd}
+			ORDER BY COURSE_NM ASC
+		)
+		SELECT
+			NVL(SUM(COURSE_PNT),0)	/* 비대면실시간 학점 */
+		FROM
+			MAINSCOREVIEW
+		WHERE
+			PRINT_SCORE != 'F'
+		AND
+			LCTRE_SE = '03'
+	</select>
+	
+	<select id="selectRankInfoOnOneSemester" parameterType="kr.ac.usu.score.vo.ScoreRankVO" resultType="kr.ac.usu.score.vo.ScoreRankVO">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.selectRankInfoOnOneSemester */
+		SELECT
+			*
+		FROM
+			(WITH SCOREVIEW AS(
+				SELECT
+					S.LCTRE_NO
+					, TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS
+					SCORE_SCORE
+					, S.STDNT_NO
+				FROM
+					LECTURE_EVALUATION_STANDARD LES INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+						INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+				WHERE
+					SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+				GROUP BY S.LCTRE_NO , S.STDNT_NO
+			), COMPLVIEW AS (
+				SELECT
+					COM_CODE
+					, COM_CODE_GRP
+					, COM_CODE_NM
+					, COM_CODE_DESC
+					, USE_YN
+					, COM_CODE_SEQ
+					, UPPER_CODE_GRP
+					, UPPER_COM_CODE
+				FROM
+					COM_CODE
+				WHERE
+					COM_CODE_GRP = 'SEC014'
+			), TARGETVIEW AS (
+				SELECT
+					(SELECT CAL_SCORE FROM SCORE_CHART WHERE SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE) CAL_SCORE
+					, C.COURSE_NM
+					, L.LCTRE_NO
+					, C.COURSE_PNT
+					, CV.COM_CODE_NM COMPL_SE
+					, SV.STDNT_NO
+				FROM
+					SCOREVIEW SV INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+						INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+						INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+				WHERE
+					L.SEMSTR_SE = #{semCd}
+			), TARGETVIEW2 AS (
+			SELECT *
+			FROM TARGETVIEW
+			WHERE CAL_SCORE != 0
+			), STUDENT_SCORE_TABLE AS (
+				SELECT
+					STDNT_NO
+					, NVL((ROUND((SUM(CAL_SCORE*COURSE_PNT)/SUM(COURSE_PNT))*10)),-1) CAL_SCORE
+				FROM
+					TARGETVIEW2
+				GROUP BY STDNT_NO
+			)
+			SELECT
+				SST.STDNT_NO
+				, SST.CAL_SCORE
+				, SRS.SKNRG_STTUS_MAJOR1
+				, ROW_NUMBER()
+					OVER
+					(PARTITION BY
+						SRS.SKNRG_STTUS_MAJOR1
+						, (SELECT SUM(COURSE_PNT) FROM ATTENDANCE_LECTURE AL INNER JOIN LECTURE L ON (AL.LCTRE_NO = L.LCTRE_NO) INNER JOIN COURSE C ON (C.COURSE_NO = L.LCTRE_NO) WHERE AL.STDNT_NO = SST.STDNT_NO AND L.SEMSTR_SE = #{semCd})
+						,(SELECT SUM(COURSE_PNT) FROM ATTENDANCE_LECTURE AL INNER JOIN LECTURE L ON (AL.LCTRE_NO = L.LCTRE_NO) INNER JOIN COURSE C ON (C.COURSE_NO = L.LCTRE_NO) WHERE AL.STDNT_NO = SST.STDNT_NO AND C.COMPL_SE = '01')
+					ORDER BY SRS.SKNRG_STTUS_MAJOR1, SST.CAL_SCORE DESC) AS SUBJCT_RANK
+				, (SELECT
+						COUNT(1)
+					FROM
+						SCHOOL_REGISTER_STATUS SRS1
+					WHERE
+						SRS1.SKNRG_STTUS_MAJOR1 = SRS.SKNRG_STTUS_MAJOR1
+					AND
+						SRS1.STDNT_NO IN (SELECT STDNT_NO FROM ATTENDANCE_LECTURE AL1 INNER JOIN LECTURE L1 ON(AL1.LCTRE_NO = L1.LCTRE_NO) WHERE L1.SEMSTR_SE = #{semCd})
+				) AS SUBJCT_PEOPLE
+				, ROW_NUMBER()
+					OVER
+					(PARTITION BY
+						SRS.SKNRG_STTUS_MAJOR1
+						, SRS.SKNRG_STTUS_GRADE
+						, (
+							SELECT
+								SUM(COURSE_PNT)
+							FROM
+								ATTENDANCE_LECTURE AL
+									INNER JOIN LECTURE L ON (AL.LCTRE_NO = L.LCTRE_NO)
+									INNER JOIN COURSE C ON (C.COURSE_NO = L.LCTRE_NO)
+							WHERE
+								AL.STDNT_NO = SST.STDNT_NO AND L.SEMSTR_SE = #{semCd})
+						, (
+							SELECT
+								SUM(COURSE_PNT)
+							FROM
+								ATTENDANCE_LECTURE AL
+									INNER JOIN LECTURE L ON (AL.LCTRE_NO = L.LCTRE_NO)
+									INNER JOIN COURSE C ON (C.COURSE_NO = L.LCTRE_NO)
+							WHERE
+								AL.STDNT_NO = SST.STDNT_NO
+							AND
+								C.COMPL_SE = '01'
+							)
+					ORDER BY SRS.SKNRG_STTUS_MAJOR1, SST.CAL_SCORE DESC
+				) AS SUBJCT_GRADE_RANK
+				, (
+					SELECT
+						COUNT(1)
+					FROM
+						SCHOOL_REGISTER_STATUS SRS2
+					WHERE
+						SRS2.SKNRG_STTUS_MAJOR1 = SRS.SKNRG_STTUS_MAJOR1
+					AND
+						SRS2.SKNRG_STTUS_GRADE = SRS.SKNRG_STTUS_GRADE
+					AND SRS2.STDNT_NO IN (SELECT STDNT_NO FROM ATTENDANCE_LECTURE AL2 INNER JOIN LECTURE L2	ON(AL2.LCTRE_NO = L2.LCTRE_NO) WHERE L2.SEMSTR_SE = #{semCd})
+				) AS SUBJCT_GRADE_PEOPLE
+				FROM
+					STUDENT_SCORE_TABLE SST
+						INNER JOIN STUDENT_INFORMATION SI ON (SI.STDNT_NO = SST.STDNT_NO)
+						INNER JOIN SCHOOL_REGISTER_STATUS SRS ON (SRS.STDNT_NO = SST.STDNT_NO)
+						INNER JOIN SUBJECT S ON (SRS.SKNRG_STTUS_MAJOR1 = S.SUBJCT_NO)
+			)
+			WHERE
+				STDNT_NO = #{stdntNo}
+	</select>
+	<select id="totalScore" resultType="double" parameterType="String">
+		/* kr.ac.usu.retrieve.mapper.StudentRetrieveMapper.totalScore */
+		WITH SCOREVIEW AS(
+			SELECT
+				S.LCTRE_NO
+			    , TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+			FROM
+				LECTURE_EVALUATION_STANDARD LES INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+												INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+			WHERE
+				STDNT_NO = #{stdntNo}
+			AND
+				SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+			GROUP BY S.LCTRE_NO
+		), COMPLVIEW AS (
+            SELECT
+                COM_CODE,
+                COM_CODE_GRP,
+                COM_CODE_NM,
+                COM_CODE_DESC,
+                USE_YN,
+                COM_CODE_SEQ,
+                UPPER_CODE_GRP,
+                UPPER_COM_CODE
+            FROM
+                COM_CODE
+            WHERE
+                COM_CODE_GRP = 'SEC014'
+        ), TARGETVIEW AS 
+		(
+			SELECT
+				(SELECT CAL_SCORE 
+			    FROM
+			    	SCORE_CHART
+			    WHERE 
+					SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+			    ) CAL_SCORE
+			    , C.COURSE_NM
+			    , L.LCTRE_NO
+	            , C.COURSE_PNT
+	            , CV.COM_CODE_NM COMPL_SE
+			FROM
+				SCOREVIEW SV INNER JOIN LECTURE L ON(SV.LCTRE_NO = L.LCTRE_NO)
+								INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+	                            INNER JOIN COMPLVIEW CV ON (CV.COM_CODE = C.COMPL_SE)
+        ), TARGETVIEW2 AS(
+	        SELECT *
+	        FROM TARGETVIEW
+	        WHERE CAL_SCORE != 0
+        )
+        SELECT
+        	NVL((ROUND((SUM(CAL_SCORE*COURSE_PNT)/SUM(COURSE_PNT))*10))/10,-1)
+        FROM
+        	TARGETVIEW2
+	</select>
+
+	<select id="selectStudentTimeTable" parameterType="HashMap" resultType="HashMap">
+		SELECT
+			LT.TMTB_SE 
+			, C.COURSE_NM
+			, P.PRFSOR_NM
+			, CASE WHEN F.FCLTS_NM IS NOT NULL THEN B.BULD_NM ||'('||F.FCLTS_NM  ||')'
+				ELSE '비대면' END AS FCLTS_NM 
+		FROM
+			ATTENDANCE_LECTURE AL
+				INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+				INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+				INNER JOIN PROFESSOR P ON (P.PRFSOR_NO = L.PRFSOR_NO)
+				LEFT OUTER JOIN FACILITIES F ON (F.FCLTS_NO = L.FCLTS_NO)
+				LEFT OUTER JOIN BUILDING B ON (B.BULD_NO = F.BULD_NO)
+				LEFT OUTER JOIN LECTURE_TIMETABLE LT ON (LT.LCTRE_NO = L.LCTRE_NO)
+		WHERE
+			1=1
+		AND
+			AL.STDNT_NO = #{id}
+		AND
+			L.SEMSTR_SE = #{semCd}
+		ORDER BY TMTB_SE ASC
+	</select>
+
+	
+</mapper>

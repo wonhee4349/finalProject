@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.lecture.mapper.StaffLectureMapper">
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureVO" id="lectureMap" autoMapping="true">
+		<id property="lctreNo" column="LCTRE_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true"/>
+		<association property="facilities" javaType="kr.ac.usu.facilities.vo.FacilitiesVO" autoMapping="true"/>
+		<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true"/>
+	</resultMap>
+
+   <sql id="searchPro">
+    <where>
+    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+    		<choose>
+    		<when test="simpleCondition.searchType eq 'prfsorNm'">
+    			INSTR(PRFSOR_NM, #{simpleCondition.searchWord}) > 0
+    		</when>		
+    		<when test="simpleCondition.searchType eq 'courseNm'">
+	    		 INSTR(COURSE_NM, #{simpleCondition.searchWord}) > 0
+	    	</when>	    		
+    		<otherwise>
+    			INSTR(PRFSOR_NM, #{simpleCondition.searchWord}) > 0
+    			OR
+	    		INSTR(COURSE_NM, #{simpleCondition.searchWord}) > 0	 
+    		</otherwise>		
+    		</choose>
+    	</if>
+    </where>
+   </sql>
+
+<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+	SELECT COUNT(*)
+	FROM
+	(<include refid="fromFrag" />)
+	<include refid="searchPro"/>
+</select>
+
+	
+<sql id="fromFrag">
+	
+WITH COMP AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014'
+), LESE AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015'
+)
+
+    SELECT
+         L.LCTRE_NO
+        , L.LCTRE_NMPR
+        , LE.COM_CODE_NM LCTRE_SE
+        , F.FCLTS_NO
+        , P.PRFSOR_NO
+        , CO.COM_CODE_NM COMPL_SE
+        , C.COURSE_NO
+        , C.COURSE_NM 
+        , P.PRFSOR_NM 
+        , F.FCLTS_NM 
+        , SUBSTR(SEMSTR_SE,1,4)||'년도 '||SUBSTR(SEMSTR_SE,5,1)||'학기' SEMSTR_SE_NM
+    FROM
+        LECTURE L
+    JOIN
+        FACILITIES F ON L.FCLTS_NO = F.FCLTS_NO
+        INNER JOIN PROFESSOR P ON L.PRFSOR_NO = P.PRFSOR_NO
+        INNER JOIN COURSE C ON L.COURSE_NO = C.COURSE_NO
+        INNER JOIN COMP CO ON (CO.COM_CODE = L.COMPL_SE)
+        INNER JOIN LESE LE ON (LE.COM_CODE = L.LCTRE_SE) 
+	ORDER BY
+        SEMSTR_SE_NM DESC
+         
+</sql>
+
+<select id="selectLectureList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="lectureMap">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="fromFrag" />
+				) B
+			<include refid="searchPro" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+
+<select id="selectLecture" resultType="kr.ac.usu.lecture.vo.LectureVO" parameterType="string" resultMap="lectureMap">
+	WITH COMP AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC014'
+), LESE AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015'
+), SEMS AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC018'
+)
+
+    SELECT
+        ROWNUM RNUM
+        , L.LCTRE_NO
+        , L.LCTRE_NMPR
+        , LE.COM_CODE_NM LCTRE_SE
+        , F.FCLTS_NO
+        , P.PRFSOR_NO
+        , CO.COM_CODE_NM COMPL_SE
+        , C.COURSE_NO
+        , C.COURSE_NM 
+        , P.PRFSOR_NM 
+        , F.FCLTS_NM 
+        , SE.COM_CODE_NM SEMSTR_SE
+    FROM
+        LECTURE L
+    JOIN
+        FACILITIES F ON L.FCLTS_NO = F.FCLTS_NO
+        INNER JOIN PROFESSOR P ON L.PRFSOR_NO = P.PRFSOR_NO
+        INNER JOIN COURSE C ON L.COURSE_NO = C.COURSE_NO
+        INNER JOIN COMP CO ON (CO.COM_CODE = L.COMPL_SE)
+        INNER JOIN LESE LE ON (LE.COM_CODE = L.LCTRE_SE)  
+        INNER JOIN SEMS SE ON (SE.COM_CODE = '0'||SUBSTR(L.SEMSTR_SE, 5))
+    WHERE
+    	 L.LCTRE_NO = #{lctreNo}
+</select>
+</mapper>

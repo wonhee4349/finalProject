@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.lecture.mapper.StudentLectureEvaulationMapper">
+	
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 11. 22.}     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+	
+	<resultMap type="kr.ac.usu.lecture.vo.LectureVO" id="lectureForEva" autoMapping="true">
+		<id property="lctreNo" column="LCTRE_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true" />
+		<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true" />
+	</resultMap>
+	
+	<select id="selectLectureEvaulationItems" resultType="kr.ac.usu.lecture.vo.LectureEvaulationItemVO">
+		/* kr.ac.usu.lecture.mapper.StudentLectureEvaulationMapper.selectLectureEvaulationItems */
+		SELECT
+		    LCTRE_EVL_IEM_NO
+		    , LCTRE_EVL_IEM_QESTN
+		FROM
+		    LECTURE_EVAULATION_ITEM
+		ORDER BY LPAD(LCTRE_EVL_IEM_NO,2,'0') ASC
+	</select>
+	
+	<select id="selectLectureEvaulationScores" resultType="kr.ac.usu.lecture.vo.LectureEvaulationScoreVO">
+		/* kr.ac.usu.lecture.mapper.StudentLectureEvaulationMapper.selectLectureEvaulationScores */
+		SELECT
+		    LCTRE_EVL_SCORE_NO
+		    , LCTRE_EVL_SCORE_QSTN
+		FROM
+		    LECTURE_EVAULATION_SCORE
+	    ORDER BY LCTRE_EVL_SCORE_NO ASC
+	</select>
+	
+	
+	<select id="selectLectrueListForEvaulation" parameterType="HashMap" resultMap="lectureForEva" >
+		/* kr.ac.usu.lecture.mapper.StudentLectureEvaulationMapper.selectLectrueListForEvaulation */
+		WITH COMMONVIEW AS (
+		    SELECT *
+		    FROM COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC014'
+		), COMMONVIEW2 AS (
+		    SELECT *
+		    FROM COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC015'
+		)
+		SELECT
+		    L.LCTRE_NO
+		    , C.COURSE_NM
+		    , P.PRFSOR_NM
+		    , CM.COM_CODE_NM COMPL_SE
+		    , CM2.COM_CODE_NM LCTRE_SE
+		    , CASE WHEN 
+		    (SELECT
+		    COUNT(*)
+		FROM
+		    LECTURE_EVAULATION LE
+		WHERE LE.STDNT_NO = #{id}
+		AND LE.LCTRE_NO = AL.LCTRE_NO) = (SELECT COUNT(*) FROM LECTURE_EVAULATION_ITEM)
+		    THEN '평가완료'
+		    ELSE NULL END AS EVA_STATUS
+		FROM
+		    ATTENDANCE_LECTURE AL
+		        INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+		        INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+		        INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+		        INNER JOIN COMMONVIEW CM ON (L.COMPL_SE = CM.COM_CODE)
+		        INNER JOIN COMMONVIEW2 CM2 ON (L.LCTRE_SE = CM2.COM_CODE)
+		WHERE
+		    L.SEMSTR_SE = #{semCd}
+		    AND AL.STDNT_NO = #{id}
+	</select>
+	
+	<insert id="insertLectureEvaulation" parameterType="List" >
+		/* kr.ac.usu.lecture.mapper.StudentLectureEvaulationMapper.insertLectureEvaulation */
+		INSERT ALL
+		<foreach collection="list" item="item" separator=" " >
+			 INTO LECTURE_EVAULATION (STDNT_NO, LCTRE_EVL_IEM, LCTRE_NO, LCTRE_EVL_SCORE_NO)
+			 VALUES 
+			 (#{item.stdntNo,jdbcType=VARCHAR}, #{item.lctreEvlIem,jdbcType=VARCHAR}, #{item.lctreNo,jdbcType=VARCHAR}, #{item.lctreEvlScoreNo,jdbcType=NUMERIC})
+		</foreach>
+		SELECT * FROM DUAL
+	</insert>
+	
+	
+	
+</mapper>

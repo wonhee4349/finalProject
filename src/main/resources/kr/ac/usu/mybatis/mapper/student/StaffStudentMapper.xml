@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.student.mapper.StaffStudentMapper">
+
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="studentMap" autoMapping="true">
+		<id property="stdntNo" column="STDNT_NO"/>
+		<result property="stdntNo" column="STDNT_NO"/>
+		<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+			<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+		</association>
+		<collection property="scholarship" ofType="kr.ac.usu.scholarship.vo.ScholarshipVO" autoMapping="true">
+			<association property="semester" autoMapping="true" />
+			<association property="scholarshipList" autoMapping="true" />			
+		</collection>
+		<collection property="tuition" ofType="kr.ac.usu.tuition.vo.TuitionVO" autoMapping="true">
+			<association property="semester" autoMapping="true" />
+		</collection>
+		<collection property="club" ofType="kr.ac.usu.club.vo.ClubVO" autoMapping="true">
+			<association property="student" autoMapping="true" />
+			<association property="facilities" javaType="kr.ac.usu.facilities.vo.FacilitiesVO" autoMapping="true">
+				<association property="building" javaType="kr.ac.usu.facilities.vo.BuildingVO" autoMapping="true" />
+			</association>
+		</collection>
+	</resultMap>
+	
+	<sql id="searchFrag">
+		WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.stdntNo)">
+			AND STDNT_NO = #{detailCondition.stdntNo}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.stdntNm)">
+			AND INSTR(STDNT_NM, #{detailCondition.stdntNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.subject.college.clgNo)">
+			AND INSTR(CLG_NO, #{detailCondition.subject.college.clgNo}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.sknrgSttusMajor1)">
+			AND INSTR(SUBJCT_NO, #{detailCondition.sknrgSttusMajor1}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.sexdstnSe)">
+			AND INSTR(COM1, #{detailCondition.sexdstnSe}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.nltySe)">
+			AND INSTR(COM2, #{detailCondition.nltySe}) > 0
+		</if>
+	</sql>
+
+	<sql id="listFromFrag">
+		SELECT
+            A.STDNT_NO
+            , B.STDNT_NM
+            ,(
+                SELECT SKNRGS_SE
+                FROM (
+                    SELECT *
+                    FROM SCHOOL_REGISTER_HISTORY AA INNER JOIN COM_CODE BB ON (AA.SKNRGS_SE = BB.COM_CODE)
+                    WHERE BB.COM_CODE_GRP = 'SEC009'
+                    ORDER BY SEMSTR_NO DESC
+                )
+                WHERE STDNT_NO = A.STDNT_NO
+                    AND ROWNUM = 1
+                ) SKNRGS_SE
+            , F.CLG_NO
+            , F.CLG_NM
+            , D.SUBJCT_NO
+            , D.SUBJCT_NM SKNRG_STTUS_MAJOR1
+            , C.SKNRG_STTUS_GRADE
+            , G.COM_CODE_NM SEXDSTN_SE
+            , H.COM_CODE_NM NLTY_SE
+            , G.COM_CODE COM1
+            , H.COM_CODE COM2
+        FROM
+            STUDENT A LEFT OUTER JOIN GRADUATION F ON (A.STDNT_NO = F.STDNT_NO)
+            INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+            INNER JOIN SCHOOL_REGISTER_STATUS C ON(A.STDNT_NO = C.STDNT_NO)
+            INNER JOIN SUBJECT D ON (C.SKNRG_STTUS_MAJOR1 = D.SUBJCT_NO)
+            INNER JOIN COLLEGE F ON (D.CLG_NO = F.CLG_NO)
+            INNER JOIN COM_CODE E ON (C.SKNRG_STTUS_ENTERENCE_SE = E.COM_CODE)
+            INNER JOIN COM_CODE G ON (B.SEXDSTN_SE = G.COM_CODE) 
+            INNER JOIN COM_CODE H ON (B.NLTY_SE = H.COM_CODE)      
+        WHERE 
+            E.COM_CODE_GRP = 'SEC012'
+            AND F.STDNT_NO IS NULL
+            AND G.COM_CODE_GRP = 'SEC001' 
+            AND H.COM_CODE_GRP = 'SEC002'
+        ORDER BY
+            SUBSTR(A.STDNT_NO,1,4) DESC, A.STDNT_NO
+	</sql>
+	
+	<!-- 학생 목록 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+			(<include refid="listFromFrag" />)
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectStudentList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="studentMap">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 셀렉트박스 불러오기 /////////////////////////////////////////////////////////////// -->
+	
+	<!-- 공통코드 -->
+	<select id="selectComCode" resultType="kr.ac.usu.user.vo.ComCodeVO" parameterType="string">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_NM
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	<!-- 단과대, 학과 -->
+	<select id="selectCollegeList" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		SELECT
+		    CLG_NO
+		    , CLG_NM
+		FROM
+		    COLLEGE
+	</select>
+	<select id="selectSubjectList" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NO
+		FROM
+		    SUBJECT
+	</select>
+	
+	<!-- ////////////////////////////////////////////////////////////////////////////// -->
+	
+	<!-- 학생 인적 정보 불러오기 -->
+	<select id="selectStudentInfo" parameterType="string" resultMap="studentMap">
+		SELECT A.*
+		FROM (
+			SELECT
+			    A.STDNT_NO
+			    , B.STDNT_NM
+			    , TO_CHAR(TO_DATE(B.STDNT_IHIDNUM1,'YY/MM/DD')) STDNT_IHIDNUM1
+			    , B.STDNT_IHIDNUM2
+			    , B.STDNT_ZIP
+			    , B.STDNT_ADRES1
+			    , B.STDNT_ADRES2
+			    , B.STDNT_TELNO
+			    , E1.COM_CODE_NM NLTY_SE
+			    , E2.COM_CODE_NM SEXDSTN_SE
+			    , B.STDNT_ACNUTNO
+			    , B.ATCH_FILE_NO
+			    , TO_CHAR(TO_DATE(C.SKNRG_STTUS_ENTSCH,'YY/MM/DD')) SKNRG_STTUS_ENTSCH
+			    , E3.COM_CODE_NM SKNRG_STTUS_ENTERENCE_SE
+                , E4.COM_CODE_NM BANK_SE
+			FROM
+			    STUDENT A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+			    INNER JOIN SCHOOL_REGISTER_STATUS C ON(A.STDNT_NO = C.STDNT_NO)
+			    INNER JOIN COM_CODE E1 ON (B.NLTY_SE = E1.COM_CODE)
+			    INNER JOIN COM_CODE E2 ON (B.SEXDSTN_SE = E2.COM_CODE)
+			    INNER JOIN COM_CODE E3 ON (C.SKNRG_STTUS_ENTERENCE_SE = E3.COM_CODE)
+                INNER JOIN COM_CODE E4 ON (B.BANK_SE = E4.COM_CODE)
+			WHERE
+			    E3.COM_CODE_GRP = 'SEC012'
+                AND E4.COM_CODE_GRP = 'SEC004'
+				AND A.STDNT_NO = #{studentNo}
+		) A
+	</select>
+	
+	<!-- 학생 학적 정보 불러오기 -->
+	<select id="selectStudentRegisterStatus" parameterType="string" resultMap="studentMap">
+		SELECT A.*
+		FROM (
+			SELECT
+			    A.STDNT_NO
+                , E.CLG_NM
+			    , D1.SUBJCT_NM SKNRG_STTUS_MAJOR1
+			    , D2.SUBJCT_NM SKNRG_STTUS_MAJOR2
+			    , D3.SUBJCT_NM SKNRG_STTUS_MINOR
+			FROM
+			    STUDENT A INNER JOIN SCHOOL_REGISTER_STATUS C ON(A.STDNT_NO = C.STDNT_NO)
+			    INNER JOIN SUBJECT D1 ON (C.SKNRG_STTUS_MAJOR1 = D1.SUBJCT_NO)
+                INNER JOIN COLLEGE E ON (D1.CLG_NO = E.CLG_NO)
+			    LEFT OUTER JOIN SUBJECT D2 ON (C.SKNRG_STTUS_MAJOR2 = D2.SUBJCT_NO)
+			    LEFT OUTER JOIN SUBJECT D3 ON (C.SKNRG_STTUS_MINOR = D3.SUBJCT_NO) 
+			WHERE
+				A.STDNT_NO = #{studentNo}
+		) A
+	</select>
+	
+	<!-- 학생 장학금 정보 불러오기 --> 
+	<select id="selectStudentScholarship" resultType="kr.ac.usu.user.vo.StudentVO" parameterType="string" resultMap="studentMap">
+		SELECT A.*, ROWNUM RNUM
+		FROM (
+			SELECT
+			    A.STDNT_NO
+			    , F.SCHLSHIP_NO
+			    , TO_CHAR(G.SCHLSHIP_AMOUNT, 'FM999,999,999,999')||' 원' AS SCHLSHIP_AMOUNT_STR
+			    , H.SCHO_NM
+			    , E4.COM_CODE_NM PYMNT_SE
+                , SUBSTR(F.SCHLSHIP_NO,6,4) SEMSTR_YEAR
+                , SUBSTR(F.SCHLSHIP_NO,10,1) SEMSTR_NO
+			FROM
+			    STUDENT A LEFT JOIN SCHOLARSHIP_STUDENT F ON (A.STDNT_NO = F.STDNT_NO)
+			    LEFT JOIN SCHOLARSHIP G ON (F.SCHLSHIP_NO = G.SCHLSHIP_NO)
+			    LEFT OUTER JOIN SCHOLARSHIP_LIST H ON (G.SCHO_SE = H.SCHO_SE)
+			    LEFT OUTER JOIN COM_CODE E4 ON (G.PYMNT_SE = E4.COM_CODE)
+			WHERE
+			    E4.COM_CODE_GRP = 'SEC025'
+				AND A.STDNT_NO = #{studentNo}
+			ORDER BY SEMSTR_YEAR, SEMSTR_NO
+		) A
+	</select>
+	
+	<!-- 학생 등록금 정보 불러오기 -->
+	<select id="selectStudentTuition" parameterType="string" resultMap="studentMap">
+		SELECT A.*, ROWNUM RNUM
+		FROM (
+			SELECT
+			    DISTINCT A.STDNT_NO
+			    , B.TUTN_NHT_NO
+			    , TO_CHAR(NVL(B.TUTN_ETRNCF, 0), 'FM999,999,999,999')||' 원' AS TUTN_ETRNCF_STR
+			    , TO_CHAR(NVL(B.TUTN_TUTFEE, 0), 'FM999,999,999,999')||' 원' AS TUTN_TUTFEE_STR
+			    , TO_CHAR(NVL(B.TUTN_SCHLSHIP, 0), 'FM999,999,999,999')||' 원' AS TUTN_SCHLSHIP_STR
+			    , TO_CHAR(TO_DATE(B.TUTN_PAYDE,'YYYY/MM/DD')) TUTN_PAYDE
+			    , C.SEMSTR_NO
+			    , C.SEMSTR_YR
+			    , C.SEMSTR
+			    , TO_CHAR(NVL(B.TUTN_ETRNCF, 0) + NVL(B.TUTN_TUTFEE, 0) - NVL(B.TUTN_SCHLSHIP, 0), 'FM999,999,999,999') ||' 원' AS REAL_PAY_STR
+			FROM
+			    STUDENT A INNER JOIN TUITION B ON(A.STDNT_NO = B.STDNT_NO)
+			    INNER JOIN SEMESTER C ON (B.SEMSTR_NO = C.SEMSTR_NO)
+                INNER JOIN SCHOLARSHIP_STUDENT D ON (A.STDNT_NO = D.STDNT_NO)
+			WHERE
+				A.STDNT_NO = #{studentNo}
+			ORDER BY SEMSTR_NO
+		) A
+	</select>
+	
+	<!-- 학생 동아리 정보 불러오기 -->
+	<select id="selectStudentClub" parameterType="string" resultMap="studentMap">
+		SELECT A.*, ROWNUM RNUM
+		FROM (
+			SELECT
+		    A.STDNT_NO
+		    , B.CLUB_NO
+		    , C.CLUB_NM
+		    , D.FCLTS_NM
+		    , F.BULD_NM
+		    , E1.COM_CODE_NM CLUB_SE
+		    , CASE WHEN A.STDNT_NO = C.STDNT_NO THEN '회장' ELSE '일반 회원' END STDNT_POSITION
+		FROM
+		    STUDENT A LEFT OUTER JOIN CLUB_MEMBER B ON(A.STDNT_NO = B.STDNT_NO)
+		    INNER JOIN CLUB C ON (B.CLUB_NO = C.CLUB_NO)
+		    INNER JOIN FACILITIES D ON (C.FCLTS_NO = D.FCLTS_NO)
+		    INNER JOIN BUILDING F ON (D.BULD_NO = F.BULD_NO)
+		    INNER JOIN COM_CODE E1 ON (C.CLUB_SE = E1.COM_CODE)
+		WHERE
+		    E1.COM_CODE_GRP = 'SEC006'
+		    AND A.STDNT_NO = #{studentNo}
+		) A
+	</select>
+	
+	<select id="selectLectureList" parameterType="string" resultType="kr.ac.usu.lecture.vo.LectureVO">
+		SELECT A.*, ROWNUM RNUM
+	      FROM (
+	         with TIMETABLEVIEW AS(
+	            SELECT
+	               LCTRE_NO
+	               , LISTAGG(CC.COM_CODE_NM, '/') WITHIN GROUP (ORDER BY COM_CODE_NM) OVER(PARTITION BY LCTRE_NO) AS TMTB_SE_NM
+	            FROM
+	               LECTURE_TIMETABLE LT
+	                  INNER JOIN COM_CODE CC ON (CC.COM_CODE = LT.TMTB_SE)
+	         ),SCOREVIEW AS(
+	         SELECT
+	            S.LCTRE_NO
+	             , TRUNC(SUM(S.SCORE_SCORE * (LES.LCTRE_EVL_STDR_REFLCT/100))) AS SCORE_SCORE
+	         FROM
+	            LECTURE_EVALUATION_STANDARD LES INNER JOIN SCORE S ON(LES.SCORE_SE = S.SCORE_SE)
+	                                    INNER JOIN LECTURE L ON (L.LCTRE_NO = S.LCTRE_NO)
+	         WHERE
+	            STDNT_NO = #{studentNo}
+	         AND
+	            SUBSTR(LES.LCTRE_ACNUTNO_NO,2) = S.LCTRE_NO
+	         GROUP BY S.LCTRE_NO
+	      )
+	         SELECT DISTINCT
+	            L.LCTRE_NO  /* 강의코드 */
+	             , C.COURSE_NM /* 강의명 */
+	               , SUBSTR(L.SEMSTR_SE,1,4) SEMSTR_YR/* 강의년도 */
+	               , SUBSTR(L.SEMSTR_SE,5) SEMSTR_SE /* 강의학기 */
+	               , (SELECT COM_CODE FROM COM_CODE CC WHERE COM_CODE_GRP = 'SEC014' AND CC.COM_CODE = L.COMPL_SE ) COMPL_SE/* 이수구분 */
+	             , (SELECT COM_CODE_NM FROM COM_CODE CC WHERE COM_CODE_GRP = 'SEC014' AND CC.COM_CODE = L.COMPL_SE ) COMPL_SE_NM /* 이수구분 */
+	             , C.COURSE_PNT||'학점' COURSE_PNT  /* 이수학점 */
+	             , P.PRFSOR_NM /* 교수명 */
+	             , NVL(TTV.TMTB_SE_NM,(SELECT COM_CODE_NM FROM COM_CODE WHERE COM_CODE_GRP = 'SEC015' AND COM_CODE = L.LCTRE_SE)) AS TMTB_SE_NM /* 시간표 */
+	                , (SELECT PRINT_SCORE 
+	                    FROM
+	                        SCORE_CHART
+	                    WHERE 
+	                        SV.SCORE_SCORE BETWEEN MIN_SCORE AND MAX_SCORE
+	                ) PRINT_SCORE
+	         FROM
+	             ATTENDANCE_LECTURE AL
+	                 INNER JOIN LECTURE L ON (L.LCTRE_NO = AL.LCTRE_NO)
+	                 INNER JOIN COURSE C ON (L.COURSE_NO = C.COURSE_NO)
+	                 INNER JOIN PROFESSOR P ON (L.PRFSOR_NO = P.PRFSOR_NO)
+	                 LEFT OUTER JOIN TIMETABLEVIEW  TTV ON (TTV.LCTRE_NO = L.LCTRE_NO)
+	                    LEFT OUTER JOIN SCOREVIEW SV ON (SV.LCTRE_NO = AL.LCTRE_NO)
+	         WHERE
+	             AL.STDNT_NO = #{studentNo}
+	           ORDER BY
+	               SEMSTR_YR, SEMSTR_SE, COMPL_SE
+	      ) A
+	</select>
+
+</mapper>

@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.tuition.mapper.StaffTuitionPayMapper">
+
+
+	<resultMap type="kr.ac.usu.tuition.vo.TuitionVO" id="listMap" autoMapping="true">
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+				<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+			</association>
+		</association>
+	</resultMap>
+	
+	
+
+	<sql id="searchFrag">
+		WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.stdntNo)">
+			AND STDNT_NO = #{detailCondition.stdntNo}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.stdntNm)">
+			AND INSTR(STDNT_NM, #{detailCondition.student.stdntNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.subject.college.clgNo)">
+			AND INSTR(CLG_NO, #{detailCondition.student.subject.college.clgNo}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.sknrgSttusMajor1)">
+			AND INSTR(SUBJCT_NO, #{detailCondition.student.sknrgSttusMajor1}) > 0
+		</if>
+	</sql>
+	
+	<sql id="listFromFrag">
+		SELECT
+		    a.tutn_nht_no
+		    , substr(a.semstr_no,1,4) tutn_pay_yr
+		    , substr(a.semstr_no,5,1) tutn_pay_sems
+		    , a.stdnt_no
+		    , c.stdnt_nm
+            , e.subjct_no
+		    , e.subjct_nm sknrg_sttus_major1
+            , f.clg_no
+            , f.clg_nm
+		    , CASE WHEN a.tutn_payde IS NOT NULL THEN '여' ELSE '부' END AS tutn_pay
+		FROM
+		    tuition a INNER JOIN student b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN student_information c on (b.stdnt_no = c.stdnt_no)
+		    INNER JOIN school_register_status d on (b.stdnt_no = d.stdnt_no)
+		    INNER JOIN subject e on (d.sknrg_sttus_major1 = e.subjct_no)
+            INNER JOIN college f on (e.clg_no = f.clg_no)
+		ORDER BY
+		    tutn_pay_yr desc, tutn_pay_sems desc, tutn_pay desc
+	</sql>
+	
+	<!-- 납부여부 리스트 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+			(<include refid="listFromFrag" />)
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectTuitionList" resultMap="listMap" parameterType="string">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 셀렉트박스 불러오기 /////////////////////////////////////////////////////////////// -->
+	
+	<!-- 단과대, 학과 -->
+	<select id="selectCollegeList" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		SELECT
+		    CLG_NO
+		    , CLG_NM
+		FROM
+		    COLLEGE
+	</select>
+	<select id="selectSubjectList" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NO
+		FROM
+		    SUBJECT
+	</select>
+	
+	<!-- ////////////////////////////////////////////////////////////////////////////// -->
+	
+	<select id="selectTuitionInfo" resultMap="listMap" parameterType="string">
+		SELECT
+		    a.tutn_nht_no
+		    , substr(a.semstr_no,1,4) tutn_pay_yr
+		    , substr(a.semstr_no,5,1) tutn_pay_sems
+		    , a.stdnt_no
+		    , c.stdnt_nm
+		    , e.subjct_nm sknrg_sttus_major1
+		    , CASE WHEN a.tutn_payde IS NOT NULL THEN '여' ELSE '부' END AS tutn_pay
+            , f.clg_nm
+            , TO_CHAR(NVL(a.tutn_etrncf,0), 'FM999,999,999,999') AS tutn_etrncf_str
+            , TO_CHAR(NVL(a.tutn_tutfee,0), 'FM999,999,999,999') AS tutn_tutfee_str
+            , TO_CHAR(NVL(a.tutn_schlship,0), 'FM999,999,999,999') AS tutn_schlship_str
+            , TO_CHAR(TO_DATE(a.tutn_payde)) tutn_payde
+		FROM
+		    tuition a INNER JOIN student b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN student_information c on (b.stdnt_no = c.stdnt_no)
+		    INNER JOIN school_register_status d on (b.stdnt_no = d.stdnt_no)
+		    INNER JOIN subject e on (d.sknrg_sttus_major1 = e.subjct_no)
+            INNER JOIN college f on (e.clg_no = f.clg_no)
+        WHERE
+            a.tutn_nht_no = #{tutnNhtNo}
+	</select>
+	
+	<update id="updateTuitionInfo" parameterType="kr.ac.usu.tuition.vo.TuitionVO">
+		UPDATE
+		    tuition
+		SET
+		    tutn_etrncf = #{tutnEtrncf}
+		    , tutn_tutfee = #{tutnTutfee}
+		    , tutn_payde = REPLACE(#{tutnPayde},'-','')
+		WHERE
+		   tutn_nht_no = #{tutnNhtNo}
+	</update>
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

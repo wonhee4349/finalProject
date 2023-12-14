@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.mainPage.mapper.StudentMainPageMapper">
+
+	<resultMap type="kr.ac.usu.schoolaffairsschedule.vo.SchoolAffairsScheduleVO" id="schoolaffairsscheduleMap" autoMapping="true">
+		<id property="scduSe" column="SCDU_SE"/>
+	</resultMap>
+
+	<select id="selectCommonBoardList" parameterType="kr.ac.usu.board.vo.BoardVO">
+		SELECT ROWNUM RNUM, A.*
+		FROM (
+			SELECT
+			    bo_no
+			    , bo_date
+			    , bo_title
+			    , bo_cnt
+			FROM
+			    board
+			WHERE
+			    bd_se = '02'
+			ORDER BY bo_date DESC
+		) A
+		<![CDATA[
+	    WHERE ROWNUM >= 1 AND ROWNUM <= 4
+	    ]]>
+	</select>
+	
+	<select id="selectNoticeBoardList" parameterType="kr.ac.usu.board.vo.BoardVO">
+		SELECT ROWNUM RNUM, A.*
+		FROM (
+			SELECT
+			    bo_no
+			    , bo_date
+			    , bo_title
+			    , bo_cnt
+			FROM
+			    board
+			WHERE
+			    bd_se = '01'
+			ORDER BY bo_date DESC
+		) A
+		<![CDATA[
+	    WHERE ROWNUM >= 1 AND ROWNUM <= 4
+	    ]]>
+	</select>
+	
+	<insert id="insertWidget" parameterType="kr.ac.usu.mainPage.vo.PortletVO">
+		INSERT INTO portlet (
+		    widget_id
+		    , user_no
+		    , content
+		    , x
+		    , y
+		    , w
+		    , h
+		) VALUES (
+			#{widgetId}
+			, #{userNo}
+			, #{content}
+			, #{x}
+			, #{y}
+			, #{w}
+			, #{h}
+		)
+	</insert>
+	
+	<select id="selectSavedWidgetInfo" resultType="kr.ac.usu.mainPage.vo.PortletVO">
+		SELECT
+		    widget_id
+		    , user_no
+		    , content
+		    , x
+		    , y
+		    , w
+		    , h
+		FROM
+		    portlet
+		WHERE user_no = #{userNo}
+	</select>
+	
+	<select id="checkSavedWidget" resultType="int" parameterType="string">
+		SELECT count(1) FROM portlet WHERE user_no = #{userNo}
+	</select>
+	
+	<update id="updateWidget" parameterType="kr.ac.usu.mainPage.vo.PortletVO">
+		UPDATE portlet
+		SET
+		    x = #{x}
+		    , y = #{y}
+		WHERE
+		    user_no = #{userNo}
+		    AND widget_id = #{widgetId}
+	</update>
+	
+	<select id="selectComCode" parameterType="string" resultType="kr.ac.usu.user.vo.ComCodeVO">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	<select id="selectStudentSchoolAffairsScheduleList" resultType="kr.ac.usu.schoolaffairsschedule.vo.CalendarVO">
+	    WITH SCDU AS (
+	    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC010'
+		)
+		SELECT ROW_NUMBER() OVER(ORDER BY SAS.SCHAFS_BEGIN_DATE) ID,
+		    SC.COM_CODE_NM AS title,
+		    SAS.SCHAFS_BEGIN_DATE "start",
+		    TO_CHAR(TO_DATE(SAS.SCHAFS_END_DATE,'YYYY-MM-DD')+1,'YYYY-MM-DD') end,     
+		    'true' allDay,
+		    '#ffd9b4' backgroundColor,
+		    '#000' textColor,
+		    SUBSTR(SAS.SEMSTR_SE, 1, 4) || '년도 ' || SUBSTR(SAS.SEMSTR_SE, 5, 1) || '학기' AS SEMSTR_SE
+		FROM
+		    SCHOOL_AFFAIRS_SCHEDULE SAS
+		    INNER JOIN SCDU SC ON (SC.COM_CODE = SAS.SCDU_SE)
+	</select>
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

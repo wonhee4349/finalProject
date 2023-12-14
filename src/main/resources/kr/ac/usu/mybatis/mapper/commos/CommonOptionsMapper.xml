@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 11. 20.     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+<mapper
+	namespace="kr.ac.usu.common.mapper.CommonOptionsMapper">
+	<select id="getComplSeList" resultType="HashMap">
+		SELECT
+		    COM_CODE KEY
+		    , COM_CODE_NM VALUE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC014'
+		    ORDER BY COM_CODE_SEQ ASC
+	</select>
+	<select id="getcoursePntList" resultType="HashMap">
+		SELECT DISTINCT
+			COURSE_PNT KEY
+			, COURSE_PNT ||'학점' VALUE
+		FROM
+			COURSE
+		ORDER BY COURSE_PNT ASC
+	</select>
+	
+	<select id="getLectureDayOfWeekList" resultType="HashMap">
+		SELECT DISTINCT
+		    SUBSTR(COM_CODE,1,1) KEY
+		    , SUBSTR(COM_CODE_NM,1,1) VALUE
+		FROM
+		    COM_CODE
+		WHERE
+		    COM_CODE_GRP = 'SEC011'
+		ORDER BY KEY ASC
+	</select>
+	
+	<select id="getComeCodeList" parameterType="String">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	<select id="getBuildingList" parameterType="String" resultType="kr.ac.usu.facilities.vo.BuildingVO">
+		SELECT 
+		    BULD_NO,
+		    BULD_NM,
+		    CLG_NO
+		FROM 
+			BUILDING
+	</select>
+	
+	<select id="getFacilitiesList" parameterType="String" resultType="kr.ac.usu.facilities.vo.FacilitiesVO">
+		SELECT
+			F.FCLTS_NO
+			,F.FCLTS_NM
+			,F.FCLTS_NMPR
+			,F.FCLTS_PURPS
+			,F.BULD_NO
+			,F.PRFSOR_NO
+		FROM 
+			FACILITIES F , BUILDING B
+		WHERE
+			F.BULD_NO = B.BULD_NO
+			AND
+			F.BULD_NO = #{buldNo,jdbcType=VARCHAR}
+		
+		ORDER BY F.FCLTS_NM ASC
+	</select>
+		
+	<select id="getCollegeList" parameterType="String" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		SELECT
+			CLG_NO
+			,CLG_NM
+			,CLG_DEAN
+		FROM
+			COLLEGE
+	</select>
+	
+	<select id="getSubjectList" parameterType="String" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			S.SUBJCT_NO
+			,S.SUBJCT_NM
+			,S.SUBJCT_OFFM
+			,S.SUBJCT_TELNO
+			,S.SUBJCT_DEAN
+			,S.CLG_NO
+		FROM
+			SUBJECT S , COLLEGE B
+		WHERE
+			S.CLG_NO = B.CLG_NO
+			AND
+			S.CLG_NO = #{clgNo,jdbcType=VARCHAR}
+	</select>
+	
+	<select id="getCourseList" parameterType="String" resultType="kr.ac.usu.course.vo.CourseVO">
+		SELECT
+			C.COURSE_NO
+			,C.COURSE_NM
+			,C.COURSE_PNT
+			,C.COMPL_SE
+			,C.SUBJCT_NO
+		FROM
+			COURSE C , SUBJECT S
+		WHERE
+			C.SUBJCT_NO = S.SUBJCT_NO
+			AND
+			C.SUBJCT_NO = #{subjctNo,jdbcType=VARCHAR}
+	</select>
+	
+	<select id="getCoursePnt" parameterType="String" resultType="kr.ac.usu.course.vo.CourseVO">
+		SELECT
+			C.COURSE_NO
+			,C.COURSE_NM
+			,C.COURSE_PNT
+			,C.COMPL_SE
+			,C.SUBJCT_NO
+		FROM
+			COURSE C , SUBJECT S
+		WHERE
+			C.SUBJCT_NO = S.SUBJCT_NO
+			AND
+			C.COURSE_NO = #{courseNo,jdbcType=VARCHAR}
+	</select>
+	<select id="getFullSubjectList" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, SUBJCT_OFFM
+			, SUBJCT_TELNO
+			, SUBJCT_DEAN
+			, CLG_NO
+		FROM
+			SUBJECT
+		ORDER BY SUBJCT_NO
+	</select>
+	
+</mapper>

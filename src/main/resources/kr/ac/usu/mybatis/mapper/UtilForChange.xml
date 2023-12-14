@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.common.dao.UtilForChange">
+	<select id="selectStudentList" resultType="kr.ac.usu.user.vo.StudentVO">
+		SELECT
+			*
+		FROM
+			STUDENT
+		WHERE
+			STDNT_NO != '20081313'
+	</select>
+	<select id="selectProfessorList" resultType="kr.ac.usu.user.vo.ProfessorVO">
+		SELECT
+			PRFSOR_NO, PRFSOR_PASSWORD
+		FROM
+			PROFESSOR
+		WHERE
+			PRFSOR_NO != '00000001'
+	</select>
+
+	<update id="updateStudentPassword" parameterType="kr.ac.usu.user.vo.StudentVO">
+		UPDATE STUDENT
+		SET STDNT_PASSWORD = #{stdntPassword}
+		WHERE STDNT_NO = #{stdntNo}
+	</update>
+	
+	<update id="updateProfessorPassword" parameterType="kr.ac.usu.user.vo.ProfessorVO">
+		UPDATE PROFESSOR
+		SET PRFSOR_PASSWORD = #{prfsorPassword}
+		WHERE PRFSOR_NO = #{prfsorNo}
+	</update>
+</mapper>

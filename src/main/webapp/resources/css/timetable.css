@@ -1,0 +1,20 @@
+@charset "UTF-8";
+
+.time_table_wrap{width:100%; padding:20px; }
+.time_table_wrap .tit{font-size:29px; font-weight:600; text-align:center; height:60px; line-height:60px; color:#000;}
+.time_table{width:100%; border:1px solid #f2f2f2;}
+.time_table th{text-align:center; background:#f2f2f2; color:#000;}
+.time_table td{text-align:center; border:1px solid #f2f2f2; padding:0}
+.time_table div{padding: 10px;color: #000;}
+
+.timedata0 { background-color: #fff2a9;}
+.timedata1 { background-color: #b2ffcc; }
+.timedata2 { background-color: #a9e2f9; }
+.timedata3 { background-color: #ffcdcd; }
+.timedata4 { background-color: #e5d4ff; }
+.timedata5 { background-color: #ffd39b; }
+.timedata6 { background-color: #dafbff; }
+.timedata7 { background-color: #bbc5fd; }
+.timedata8 { background-color: #dce6f7; }
+.timedata9 { background-color: #e7f7c3; }
+.timedata10 { background-color:#edcffb; }

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.schoolaffairsschedule.mapper.StaffSchoolAffairsScheduleMapper">
+
+
+<resultMap type="kr.ac.usu.schoolaffairsschedule.vo.SchoolAffairsScheduleVO" id="schoolaffairsscheduleMap" autoMapping="true">
+		<id property="scduSe" column="SCDU_SE"/>
+	</resultMap>
+	
+	  <sql id="searchPro">
+    <where>
+    		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.scduSe)">
+			AND INSTR(COM1,#{detailCondition.scduSe}) > 0
+		</if>
+    </where>
+   </sql>
+
+<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+	SELECT COUNT(*)
+		FROM (<include refid="listFromFrag" />)
+	<include refid="searchPro"/>
+</select>
+
+<sql id="listFromFrag">
+	WITH SCDU AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC010'
+	)
+			SELECT
+				SCHAFS_BEGIN_DATE,
+			    SCHAFS_END_DATE,
+			    SCDU_SE, 
+			    SEMSTR_SE,
+			    SC.COM_CODE_NM SCDU_SE_NM,
+			    SUBSTR(SEMSTR_SE,1,4)||'년도 '||SUBSTR(SEMSTR_SE,5,1)||'학기' SEMSTR_SE_NM,
+			    SC.COM_CODE COM1
+			FROM
+			    SCHOOL_AFFAIRS_SCHEDULE SAS
+			    INNER JOIN SCDU SC ON (SC.COM_CODE = SAS.SCDU_SE)
+			ORDER BY
+				SCHAFS_BEGIN_DATE DESC
+			
+</sql>
+
+<select id="selectStaffSchoolAffairsScheduleList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="schoolaffairsscheduleMap">
+SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchPro" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}			
+	    ]]>
+</select>
+	
+	<insert id="insertSchoolAffairsSchedule" parameterType="kr.ac.usu.schoolaffairsschedule.vo.SchoolAffairsScheduleVO">	
+    
+    INSERT INTO SCHOOL_AFFAIRS_SCHEDULE (
+        SCDU_SE,
+        SEMSTR_SE, 
+        SCHAFS_BEGIN_DATE,
+        SCHAFS_END_DATE
+    ) VALUES (
+        #{scduSe,jdbcType=VARCHAR},
+        #{semstrSe,jdbcType=VARCHAR},    
+        #{schafsBeginDate,jdbcType=VARCHAR},
+        #{schafsEndDate,jdbcType=VARCHAR}
+    )
+</insert>
+	
+	<select id="selectComCode" parameterType="String" resultType="kr.ac.usu.user.vo.ComCodeVO">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+<delete id="removeSchoolAffairsSchedule" parameterType="kr.ac.usu.schoolaffairsschedule.vo.SchoolAffairsScheduleVO">
+    DELETE FROM SCHOOL_AFFAIRS_SCHEDULE
+    WHERE SCDU_SE = #{scduSe} AND SEMSTR_SE = #{semstrSe}
+</delete>
+	
+	</mapper>

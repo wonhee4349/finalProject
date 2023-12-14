@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:c="http://www.springframework.org/schema/c"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-5.8.xsd">
+	
+	<bean class="org.springframework.security.crypto.factory.PasswordEncoderFactories"
+			id="passwordEncoder" 
+		factory-method="createDelegatingPasswordEncoder"
+	/>
+<!-- 			<security:user-service> -->
+<!-- 				<security:user name="a001" password="{bcrypt}$2a$10$f/DCZmc/4KxpAsbPf6MWm.xoXkDeKcWdp/aqL21VFJXmwxWlg0thi" authorities="ROLE_ADMIN"/> -->
+<!-- 				<security:user name="b001" password="{bcrypt}$2a$10$f/DCZmc/4KxpAsbPf6MWm.xoXkDeKcWdp/aqL21VFJXmwxWlg0thi" authorities="ROLE_USER"/> -->
+<!-- 			</security:user-service> -->
+	
+	<security:authentication-manager id="authenticationManager">
+		<security:authentication-provider user-service-ref="loginMapper">
+			<security:password-encoder ref="passwordEncoder"/>
+		</security:authentication-provider>
+	</security:authentication-manager>
+		
+	<security:http auto-config="true"  >
+	
+		<!-- iframe에 파일 열때 보안 해제  -->
+		<security:headers>
+			<security:frame-options disabled="true"/>
+		</security:headers>
+	
+		<security:form-login
+			login-page="/loginForm"
+			login-processing-url="/login"
+			username-parameter="userId"
+			password-parameter="userPw"
+			authentication-success-handler-ref="customAuthenticationSuccessHandler"
+			authentication-failure-handler-ref="customAuthenticationFailureHandler"
+			
+		/>
+		<security:logout
+			logout-url="/logout"
+			logout-success-url="/"
+		/>
+		<security:access-denied-handler ref="customAccessDeniedHandler" />
+		<security:session-management session-fixation-protection="changeSessionId" invalid-session-url="/login?invalid=true" >
+			<security:concurrency-control expired-url="/login?expired=true" max-sessions="1" error-if-maximum-exceeded="false" />
+		</security:session-management>
+<!-- 		<security:csrf disabled="true" /> -->
+		<security:intercept-url pattern="/resources/**" access="permitAll"/>
+		<security:intercept-url pattern="/accessDenied" access="permitAll"/>
+		<security:intercept-url pattern="/findId" access="isAnonymous()"/>
+		<security:intercept-url pattern="/findPassword" access="isAnonymous()"/>
+		<security:intercept-url pattern="/" access="isAnonymous()"/>
+		<security:intercept-url pattern="/login" access="isAnonymous()"/>
+		<security:intercept-url pattern="/loginForm" access="isAnonymous()"/>
+		<security:intercept-url pattern="/index" access="isAnonymous()"/>
+		<security:intercept-url pattern="/staff/**" access="hasRole('STAFF')"/>
+		<security:intercept-url pattern="/student/**" access="hasRole('STUDENT')"/>
+		<security:intercept-url pattern="/professor/**" access="hasRole('PROFESSOR')"/>
+		<security:intercept-url pattern="/**" access="isAuthenticated()"/>
+	</security:http>
+</beans>

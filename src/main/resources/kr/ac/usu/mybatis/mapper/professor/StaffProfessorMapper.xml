@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.professor.mapper.StaffProfessorMapper">
+	
+	<resultMap type="kr.ac.usu.subject.vo.SubjectVO" id="subjectMap" autoMapping="true">
+		<id property="subjctNo" column="SUBJCT_NO"/>
+		<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.user.vo.ProfessorVO" id="professorMap" autoMapping="true">
+		<id property="prfsorNo" column="PRFSOR_NO"/>
+		<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true"/>
+	</resultMap>
+
+   <sql id="searchPro">
+    WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prfsorNo)">
+			AND PRFSOR_NO = #{detailCondition.prfsorNo}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prfsorNm)">
+			AND INSTR(PRFSOR_NM, #{detailCondition.prfsorNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.subjctNo)">
+			AND INSTR(SUBJCT_NO, #{detailCondition.subjctNo}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.sexdstnSe)">
+			AND INSTR(COM1, #{detailCondition.sexdstnSe}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prfsorNlty)">
+			AND INSTR(COM2, #{detailCondition.prfsorNlty}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prfsorEmplynForm)">
+			AND INSTR(COM3, #{detailCondition.prfsorEmplynForm}) > 0
+		</if>
+   </sql>
+
+<sql id="listFromFrag">
+WITH NATIONVIEW AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC002'
+	), GENVIEW AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC001'
+	), GOYONG AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC003'
+	
+	)
+			SELECT				
+			    P.PRFSOR_NO,
+			    P.PRFSOR_NM,
+			    P.PRFSOR_ZIP,
+			    P.PRFSOR_ADRES1,
+			    P.PRFSOR_ADRES2,
+			    P.PRFSOR_TELNO,
+			    P.PRFSOR_EMPLMN,
+			    P.PRFSOR_RETIRE,
+			    GO.COM_CODE_NM PRFSOR_EMPLYN_FORM,
+			    NA.COM_CODE_NM PRFSOR_NLTY,
+			    GEN.COM_CODE_NM SEXDSTN_SE,
+			    S.SUBJCT_NO,
+			    S.SUBJCT_NM,
+			    GEN.COM_CODE COM1,
+			    NA.COM_CODE COM2,
+			 	GO.COM_CODE COM3
+			FROM
+			    PROFESSOR P
+			JOIN
+			    SUBJECT S ON P.SUBJCT_NO = S.SUBJCT_NO
+			    INNER JOIN NATIONVIEW NA ON (NA.COM_CODE = P.PRFSOR_NLTY)
+			    INNER JOIN GENVIEW GEN ON (GEN.COM_CODE = P.SEXDSTN_SE)
+			    INNER JOIN GOYONG GO ON (GO.COM_CODE = P.PRFSOR_EMPLYN_FORM)
+			ORDER BY
+            	SUBSTR(P.PRFSOR_NO,1,4) DESC, P.PRFSOR_NO 
+            
+</sql>
+
+
+
+<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+	SELECT COUNT(*)
+		FROM
+			(<include refid="listFromFrag" />)
+		<include refid="searchPro" />
+</select>
+
+	<select id="selectProfessorList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="professorMap">
+	SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="listFromFrag" />
+			) B
+			<include refid="searchPro" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}			
+	    ]]>
+	</select>
+	
+	<select id="selectProfessor" resultType="kr.ac.usu.user.vo.ProfessorVO" parameterType="string" resultMap="professorMap">
+		WITH NATIONVIEW AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC002'
+), GENVIEW AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC001'
+), GOYONG AS (
+    SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC003'
+)
+SELECT
+    ROWNUM RNUM
+    ,P.PRFSOR_NO,
+    P.PRFSOR_NM,
+    P.PRFSOR_ZIP,
+    TO_CHAR(TO_DATE(SUBSTR(P.PRFSOR_IHIDNUM1, 1, 6), 'YYMMDD'), '"19"YY') || '년 ' ||
+    TO_CHAR(TO_DATE(SUBSTR(P.PRFSOR_IHIDNUM1, 1, 6), 'YYMMDD'), 'MM') || '월 ' ||
+    TO_CHAR(TO_DATE(SUBSTR(P.PRFSOR_IHIDNUM1, 1, 6), 'YYMMDD'), 'DD') || '일' AS PRFSOR_IHIDNUM1,
+    P.PRFSOR_ADRES1,
+    NVL(P.PRFSOR_ADRES2, '정보 없음') AS PRFSOR_ADRES2,
+    P.PRFSOR_TELNO,
+    P.PRFSOR_EMPLMN,
+    NVL(P.PRFSOR_RETIRE, '정보 없음') AS PRFSOR_RETIRE,
+    GO.COM_CODE_NM PRFSOR_EMPLYN_FORM,
+    NA.COM_CODE_NM PRFSOR_NLTY,
+    GEN.COM_CODE_NM SEXDSTN_SE,
+    S.SUBJCT_NO,
+    S.SUBJCT_NM
+FROM
+    PROFESSOR P
+JOIN
+    SUBJECT S ON P.SUBJCT_NO = S.SUBJCT_NO
+    INNER JOIN NATIONVIEW NA ON NA.COM_CODE = P.PRFSOR_NLTY
+    INNER JOIN GENVIEW GEN ON GEN.COM_CODE = P.SEXDSTN_SE
+    INNER JOIN GOYONG GO ON GO.COM_CODE = P.PRFSOR_EMPLYN_FORM
+WHERE
+    P.PRFSOR_NO = #{prfsorNo}
+   
+		
+	</select>
+	
+	<insert id="insertProfessor" parameterType="kr.ac.usu.user.vo.ProfessorVO">
+		<selectKey keyProperty="prfsorNo" order="BEFORE" resultType="String">
+			SELECT
+				LPAD(TO_CHAR(TO_NUMBER(NVL(MAX(PRFSOR_NO),0))+1),8,'0')
+			FROM
+				PROFESSOR
+		</selectKey>
+    /* kr.ac.usu.professor.mapper.ProfessorMapper.insertProfessor */
+    INSERT INTO PROFESSOR (
+        PRFSOR_NO,
+        PRFSOR_NM,
+        PRFSOR_PASSWORD,
+        PRFSOR_IHIDNUM1,
+        PRFSOR_IHIDNUM2,
+        PRFSOR_ZIP,
+        PRFSOR_ADRES1,
+        PRFSOR_ADRES2,
+        PRFSOR_TELNO,
+        PRFSOR_EMPLMN,
+        PRFSOR_EMPLYN_FORM,
+        PRFSOR_NLTY,
+        SEXDSTN_SE,
+        SUBJCT_NO
+    ) VALUES (
+        #{prfsorNo,jdbcType=VARCHAR},
+        #{prfsorNm,jdbcType=VARCHAR},
+        #{prfsorNo,jdbcType=VARCHAR},
+        #{prfsorIhidnum1,jdbcType=VARCHAR},
+        #{prfsorIhidnum2,jdbcType=VARCHAR},
+        #{prfsorZip,jdbcType=VARCHAR},
+        #{prfsorAdres1,jdbcType=VARCHAR},
+        #{prfsorAdres2,jdbcType=VARCHAR},
+        #{prfsorTelno,jdbcType=VARCHAR},
+        #{prfsorEmplmn,jdbcType=VARCHAR},
+        #{prfsorEmplynForm,jdbcType=VARCHAR},
+        #{prfsorNlty,jdbcType=VARCHAR},
+        #{sexdstnSe,jdbcType=VARCHAR},
+        #{subjctNo,jdbcType=VARCHAR}
+    )
+</insert>
+	
+	<select id="selectComCode" parameterType="String" resultType="kr.ac.usu.user.vo.ComCodeVO">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+			AND (COM_CODE_GRP != 'SEC003' OR COM_CODE_SEQ IN (3, 4))
+			
+	</select>
+	
+	<select id="selectSubjectList" resultMap="subjectMap">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NM
+		FROM
+			SUBJECT S INNER JOIN COLLEGE C ON (S.CLG_NO = C.CLG_NO)
+	</select>
+	
+	<update id="updateProfessorPassword" parameterType="kr.ac.usu.user.vo.ProfessorVO">
+		UPDATE
+			PROFESSOR
+		SET
+			PRFSOR_PASSWORD = #{prfsorPassword}
+		WHERE
+			PRFSOR_NO = #{prfsorNo}
+	</update>
+	
+	<update id="updateProfessor" parameterType="kr.ac.usu.user.vo.ProfessorVO">
+	
+	UPDATE PROFESSOR
+SET 
+    PRFSOR_ZIP = #{prfsorZip, jdbcType=VARCHAR},
+    PRFSOR_ADRES1 = #{prfsorAdres1, jdbcType=VARCHAR},
+    PRFSOR_ADRES2 = #{prfsorAdres2, jdbcType=VARCHAR},
+    PRFSOR_TELNO = #{prfsorTelno, jdbcType=VARCHAR},
+    PRFSOR_EMPLMN = #{prfsorEmplmn, jdbcType=VARCHAR},
+    PRFSOR_RETIRE = #{prfsorRetire, jdbcType=VARCHAR},
+    PRFSOR_EMPLYN_FORM = #{prfsorEmplynForm, jdbcType=VARCHAR},
+    PRFSOR_NLTY = #{prfsorNlty, jdbcType=VARCHAR},
+    SEXDSTN_SE = #{sexdstnSe, jdbcType=VARCHAR},
+    SUBJCT_NO = #{subjctNo, jdbcType=VARCHAR}
+WHERE
+    PRFSOR_NO = #{prfsorNo, jdbcType=VARCHAR}
+	</update>
+	
+</mapper>

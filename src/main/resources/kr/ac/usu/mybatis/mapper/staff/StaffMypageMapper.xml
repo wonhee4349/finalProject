@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.staff.mapper.StaffMypageMapper">
+
+	<!-- 교직원 인적 정보 불러오기 -->
+	<select id="selectStaffInfo" parameterType="string" resultType="kr.ac.usu.user.vo.StaffVO">
+		SELECT
+		    sklstf_no
+		    , sklstf_password
+		    , sklstf_nm
+		    , SUBSTR(sklstf_ihidnum1,1,2) || '/' || SUBSTR(sklstf_ihidnum1,3,2) || '/' || SUBSTR(sklstf_ihidnum1,5,2) sklstf_ihidnum1
+		    , sklstf_zip
+		    , sklstf_adres1
+		    , sklstf_adres2
+		    , sklstf_telno
+		    , SUBSTR(sklstf_encpn,3,2) || '/' || SUBSTR(sklstf_encpn,6,2) || '/' || SUBSTR(sklstf_encpn,9,2) sklstf_encpn
+		    , sklstf_retire
+		    , b.com_code_nm emplym_se
+		    , c.com_code_nm sklstf_nlty
+		    , d.com_code_nm sklstf_sexdstn
+		
+		FROM
+		    staff a INNER JOIN com_code b on (a.emplym_se = b.com_code)
+			INNER JOIN com_code c on (a.sklstf_nlty = c.com_code)
+			INNER JOIN com_code d on (a.sklstf_sexdstn = d.com_code)
+		WHERE
+		    sklstf_no = #{sklstfNo}
+		    AND b.com_code_grp = 'SEC003'
+		    AND c.com_code_grp = 'SEC002'
+		    AND d.com_code_grp = 'SEC001'
+	</select>
+	
+	<!-- 내정보 수정 -->
+	<update id="updateMypage" parameterType="kr.ac.usu.user.vo.StaffVO">
+		UPDATE staff
+		SET
+		    sklstf_zip = #{sklstfZip}
+		    , sklstf_adres1 = #{sklstfAdres1}
+		    , sklstf_adres2 = #{sklstfAdres2}
+		    , sklstf_telno = #{sklstfTelno}
+		WHERE
+		    sklstf_no = #{sklstfNo}
+	</update>
+	
+	<!-- 비밀번호 수정 -->
+	<update id="updatePass" parameterType="kr.ac.usu.user.vo.StaffVO">
+		UPDATE staff
+		SET
+		    sklstf_password = #{sklstfPassword}
+		WHERE
+		    sklstf_no = #{sklstfNo}
+	</update>
+
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

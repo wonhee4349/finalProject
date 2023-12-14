@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.user.mapper.LoginMapper">
+	<resultMap type="kr.ac.usu.user.vo.ProfessorVO" id="ProfessorMap" autoMapping="true">
+		<id property="prfsorNo" column="PRFSOR_NO"/>
+		<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+			<result property="subjctNo" column="SUBJCT_NO" />
+			<association property="college" autoMapping="true" />
+		</association>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.user.vo.StudentVO" id="student" autoMapping="true">
+		<association property="schoolRegisterHistory" javaType="kr.ac.usu.student.vo.SchoolRegisterHistoryVO" autoMapping="true" />
+	</resultMap>
+
+
+	<select id="selectStudent" parameterType="String" resultMap="student">
+		/* kr.ac.usu.user.mapper.LoginMapper */
+		WITH SUBJECTVIEW1 AS (
+		    SELECT
+		    SUBJCT_NO
+		    , SUBJCT_NM
+		    , SUBJCT_OFFM
+		    , SUBJCT_TELNO
+		    , SUBJCT_DEAN
+		    , C.CLG_NO
+		    , CLG_NM
+		    FROM
+		        SUBJECT S INNER JOIN COLLEGE C ON (S.CLG_NO = C.CLG_NO)
+		), SUBJECTVIEW2 AS (
+		    SELECT
+		    SUBJCT_NO
+		    , SUBJCT_NM
+		    , SUBJCT_OFFM
+		    , SUBJCT_TELNO
+		    , SUBJCT_DEAN
+		    , C.CLG_NO
+		    , CLG_NM
+		    FROM
+		        SUBJECT S INNER JOIN COLLEGE C ON (S.CLG_NO = C.CLG_NO)
+		), SUBJECTVIEW3 AS (
+		    SELECT
+		    SUBJCT_NO
+		    , SUBJCT_NM
+		    , SUBJCT_OFFM
+		    , SUBJCT_TELNO
+		    , SUBJCT_DEAN
+		    , C.CLG_NO
+		    , CLG_NM
+		    FROM
+		        SUBJECT S INNER JOIN COLLEGE C ON (S.CLG_NO = C.CLG_NO)
+		), NATIONVIEW AS (
+		   SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC002'
+		), GENVIEW AS (
+		   SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC001'
+		), BANKVIEW AS (
+		   SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC004'
+		), ENTERENCEVIEW AS (
+		   SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC012'
+		), STDNTREGHISVIEW AS (
+			SELECT
+			    SEMSTR_NO
+			    , STDNT_NO
+			    ,SKNRG_HIST_DATE
+			    , SKNRGS_SE 
+			    FROM SCHOOL_REGISTER_HISTORY
+			    WHERE STDNT_NO = #{id}
+			    AND ROWNUM = 1
+			    ORDER BY SEMSTR_NO DESC
+		), SKNRGSVIEW AS (
+		    SELECT
+		    COM_CODE,
+		    COM_CODE_GRP,
+		    COM_CODE_NM,
+		    COM_CODE_DESC,
+		    USE_YN,
+		    COM_CODE_SEQ,
+		    UPPER_CODE_GRP,
+		    UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC009'
+		)
+		SELECT
+			S.STDNT_NO
+			, S.STDNT_PASSWORD
+			, STDNT_NM
+		    , STDNT_IHIDNUM1
+		    , STDNT_IHIDNUM2
+		    , STDNT_ZIP
+		    , STDNT_ADRES1
+		    , STDNT_ADRES2
+		    , STDNT_TELNO
+		    , NV.COM_CODE_NM NLTY_SE
+		    , GV.COM_CODE_NM SEXDSTN_SE
+		    , BV.COM_CODE_NM BANK_SE
+		    , STDNT_ACNUTNO
+			, SKNRG_STTUS_GRADE
+			, SKNRG_STTUS_ENTSCH
+			, SKNRG_STTUS_GRDTN
+			, EV.COM_CODE_NM SKNRG_STTUS_ENTERENCE_SE
+			, SKNRG_STTUS_MAJOR1
+			, SKNRG_STTUS_MAJOR2
+			, SKNRG_STTUS_MINOR
+		    , SV1.CLG_NM || ' ' || SV1.SUBJCT_NM SKNRG_STTUS_MAJOR1_NM
+		    , SV2.CLG_NM || ' ' || SV2.SUBJCT_NM SKNRG_STTUS_MAJOR2_NM
+            , SV3.CLG_NM || ' ' || SV3.SUBJCT_NM SKNRG_STTUS_MINOR_NM
+		    , SUBJCT_TELNO
+		    , SUBJCT_DEAN
+			, SRHVV.COM_CODE_NM SKNRGS_SE
+            , SRHV.SKNRG_HIST_DATE
+		    , F.ATCH_FILE_NO
+		    , ATCH_FILE_SN
+		    , ATCH_FILE_NM
+		    , ATCH_FILE_STRE_NM
+		    , ATCH_FILE_STRE_PATH
+		    , ATCH_FILE_MG
+		    , ATCH_FILE_INDICT_MG
+		    , ATCH_FILE_MIME_TYPE
+		FROM
+			STUDENT S INNER JOIN STUDENT_INFORMATION SI ON(S.STDNT_NO = SI.STDNT_NO)
+			INNER JOIN SCHOOL_REGISTER_STATUS SRS ON(SRS.STDNT_NO = S.STDNT_NO)
+			INNER JOIN SUBJECTVIEW1 SV1 ON (SV1.SUBJCT_NO = SRS.SKNRG_STTUS_MAJOR1)
+            LEFT OUTER JOIN SUBJECTVIEW2 SV2 ON (SV2.SUBJCT_NO = SRS.SKNRG_STTUS_MAJOR2)
+            LEFT OUTER JOIN SUBJECTVIEW3 SV3 ON (SV3.SUBJCT_NO = SRS.SKNRG_STTUS_MINOR)
+            INNER JOIN NATIONVIEW NV ON (NV.COM_CODE = SI.NLTY_SE)
+            INNER JOIN GENVIEW GV ON (GV.COM_CODE = SI.SEXDSTN_SE)
+            INNER JOIN ENTERENCEVIEW EV ON (EV.COM_CODE = SRS.SKNRG_STTUS_ENTERENCE_SE)
+            INNER JOIN BANKVIEW BV ON (BV.COM_CODE = SI.BANK_SE)
+            LEFT OUTER JOIN STDNTREGHISVIEW SRHV ON (SRHV.STDNT_NO = S.STDNT_NO)
+            LEFT OUTER JOIN SKNRGSVIEW SRHVV ON (SRHV.SKNRGS_SE = SRHVV.COM_CODE)
+			LEFT OUTER JOIN ATTACHING_FILE F ON (SI.ATCH_FILE_NO = F.ATCH_FILE_NO)
+		WHERE
+			S.STDNT_NO =  #{id}
+	</select>
+	
+
+	
+	<select id="selectProfessor" parameterType="String" resultMap="ProfessorMap">
+		WITH SUBJECTVIEW AS (
+			SELECT
+				SUBJCT_NO, SUBJCT_NM, SUBJCT_OFFM, SUBJCT_TELNO
+				,SUBJCT_DEAN, C.CLG_NO
+				,CLG_NM, CLG_DEAN
+			FROM SUBJECT S
+				LEFT OUTER JOIN COLLEGE C ON (S.CLG_NO = C.CLG_NO)
+			),
+		    EMPLYMVIEW AS (
+		       SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC003'
+		    )
+			
+		SELECT
+		     PRFSOR_NO
+		    , PRFSOR_NM
+		    , PRFSOR_PASSWORD
+		    , PRFSOR_IHIDNUM1
+		    , PRFSOR_IHIDNUM2
+		    , PRFSOR_ZIP
+		    , PRFSOR_ADRES1
+		    , PRFSOR_ADRES2
+		    , PRFSOR_TELNO
+		    , PRFSOR_EMPLMN
+		    , PRFSOR_RETIRE
+		    , PRFSOR_NLTY
+		    , SEXDSTN_SE
+		    , P.SUBJCT_NO
+		    , F.ATCH_FILE_NO
+		    , ATCH_FILE_SN
+		    , ATCH_FILE_NM
+		    , ATCH_FILE_STRE_NM
+		    , ATCH_FILE_STRE_PATH
+		    , ATCH_FILE_MG
+		    , ATCH_FILE_INDICT_MG
+		    , ATCH_FILE_MIME_TYPE
+	    	, SUBJCT_NM, SUBJCT_OFFM, SUBJCT_TELNO
+			,SUBJCT_DEAN, V.CLG_NO
+			,CLG_NM, CLG_DEAN
+			,EMPLYM.COM_CODE_NM PRFSOR_EMPLYN_FORM
+		FROM
+		    PROFESSOR P LEFT OUTER JOIN ATTACHING_FILE F ON (P.ATCH_FILE_NO = F.ATCH_FILE_NO)
+		    			LEFT OUTER JOIN SUBJECTVIEW V ON (P.SUBJCT_NO = V.SUBJCT_NO)
+		    			INNER JOIN EMPLYMVIEW EMPLYM ON (EMPLYM.COM_CODE = P.PRFSOR_EMPLYN_FORM)
+		WHERE
+			P.PRFSOR_NO = #{id}
+	</select>
+	
+	<select id="selectStaff" parameterType="String" resultType="kr.ac.usu.user.vo.StaffVO">
+		SELECT
+		    SKLSTF_NO
+		    , SKLSTF_NM
+		    , SKLSTF_PASSWORD
+		    , SKLSTF_IHIDNUM1
+		    , SKLSTF_IHIDNUM2
+		    , SKLSTF_ZIP
+		    , SKLSTF_ADRES1
+		    , SKLSTF_ADRES2
+		    , SKLSTF_TELNO
+		    , SKLSTF_ENCPN
+		    , SKLSTF_RETIRE
+		    , EMPLYM_SE
+		    , SKLSTF_NLTY
+		    , SKLSTF_SEXDSTN
+			, F.ATCH_FILE_NO
+		    , ATCH_FILE_SN
+		    , ATCH_FILE_NM
+		    , ATCH_FILE_STRE_NM
+		    , ATCH_FILE_STRE_PATH
+		    , ATCH_FILE_MG
+		    , ATCH_FILE_INDICT_MG
+		    , ATCH_FILE_MIME_TYPE
+		FROM
+			STAFF SF LEFT OUTER JOIN ATTACHING_FILE F ON (SF.ATCH_FILE_NO = F.ATCH_FILE_NO)
+		WHERE
+			SF.SKLSTF_NO = #{id}
+	</select>
+	<insert id="insertAccessLog" parameterType="String">
+		INSERT INTO access_log (
+		    id,
+		    acs_lg_date,
+		    acs_ip,
+		    acs_se
+		) VALUES (
+		    #{id,jdbcType=VARCHAR}
+		    , SYSDATE
+		    , #{acsIp,jdbcType=VARCHAR}
+		    , #{acsSe,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+</mapper>

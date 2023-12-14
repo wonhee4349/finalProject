@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.student.mapper.StaffRegisterStatusRequestMapper">
+
+	<resultMap type="kr.ac.usu.student.vo.SchoolRegisterVO" id="registerStatusMap" autoMapping="true">
+		<id property="sknrgNo" column="SKNRG_NO"/>
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+				<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+			</association>
+		</association>
+	</resultMap>
+
+	<sql id="searchFrag"> 
+		WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.stdntNo)">
+			AND STDNT_NO = #{detailCondition.stdntNo}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.stdntNm)">
+			AND INSTR(STDNT_NM, #{detailCondition.student.stdntNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.subject.college.clgNo)">
+			AND INSTR(CLG_NO, #{detailCondition.student.subject.college.clgNo}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.sknrgSttusMajor1)">
+			AND INSTR(SUBJCT_NO, #{detailCondition.student.sknrgSttusMajor1}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.confmSe)">
+			AND INSTR(COM1, #{detailCondition.confmSe}) > 0
+		</if>
+	</sql>
+	
+	<sql id="doubleMajorFromFrag">
+		SELECT DISTINCT
+		    a.sknrg_no
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , f.clg_no
+            , f.clg_nm
+            , d.subjct_no
+		    , d.subjct_nm sknrg_sttus_major1
+		    , SUBSTR(a.sknrg_date,1,2) || '/' || SUBSTR(a.sknrg_date,3,2) || '/' || SUBSTR(a.sknrg_date,5,2) sknrg_date
+		    , e.com_code_nm confm_se
+		    , e.com_code com1
+		FROM
+		    school_register a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN com_code e on (a.confm_se = e.com_code)
+            INNER JOIN college f on (d.clg_no = f.clg_no)
+		WHERE
+		    a.sknrg_se = '02'
+		    AND e.com_code_grp = 'SEC013'
+        ORDER BY com1, sknrg_date DESC, clg_no
+	</sql>
+	
+	<sql id="minorFromFrag">
+		SELECT DISTINCT
+		    a.sknrg_no
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , f.clg_no
+            , f.clg_nm
+            , d.subjct_no
+		    , d.subjct_nm sknrg_sttus_major1
+		    , SUBSTR(a.sknrg_date,1,2) || '/' || SUBSTR(a.sknrg_date,3,2) || '/' || SUBSTR(a.sknrg_date,5,2) sknrg_date
+		    , e.com_code_nm confm_se
+		    , e.com_code com1
+		FROM
+		    school_register a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN com_code e on (a.confm_se = e.com_code)
+            INNER JOIN college f on (d.clg_no = f.clg_no)
+		WHERE
+		    a.sknrg_se = '03'
+		    AND e.com_code_grp = 'SEC013'
+        ORDER BY com1, sknrg_date DESC, clg_no
+	</sql>
+	
+	<sql id="moveMajorFromFrag">
+		SELECT DISTINCT
+		    a.sknrg_no
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , f.clg_no
+            , f.clg_nm
+            , d.subjct_no
+		    , d.subjct_nm sknrg_sttus_major1
+		    , SUBSTR(a.sknrg_date,1,2) || '/' || SUBSTR(a.sknrg_date,3,2) || '/' || SUBSTR(a.sknrg_date,5,2) sknrg_date
+		    , e.com_code_nm confm_se
+		    , e.com_code com1
+		FROM
+		    school_register a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN com_code e on (a.confm_se = e.com_code)
+            INNER JOIN college f on (d.clg_no = f.clg_no)
+		WHERE
+		    a.sknrg_se = '04'
+		    AND e.com_code_grp = 'SEC013'
+        ORDER BY com1, sknrg_date DESC, clg_no
+	</sql>
+	
+	<!-- 셀렉트박스 불러오기 /////////////////////////////////////////////////////////////// -->
+	
+	<!-- 공통코드 -->
+	<select id="selectComCode" resultType="kr.ac.usu.user.vo.ComCodeVO" parameterType="string">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_NM
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	<!-- 단과대, 학과 -->
+	<select id="selectCollegeList" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		SELECT
+		    CLG_NO
+		    , CLG_NM
+		FROM
+		    COLLEGE
+	</select>
+	<select id="selectSubjectList" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NO
+		FROM
+		    SUBJECT
+	</select>
+	
+	<!-- ////////////////////////////////////////////////////////////////////////////// -->
+	
+	<!-- 복수전공 신청 목록 불러오기 ////////////////////////////////////////////////////////////////////////////////////////// -->
+	<select id="selectDoubleMajorRequestTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="doubleMajorFromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectDoubleMajorRequestList" resultMap="registerStatusMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="doubleMajorFromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	<!-- //////////////////////////////////////////////////////////////////////////////////////////////////////////// -->
+
+	<!-- 부전공 신청 목록 불러오기 ////////////////////////////////////////////////////////////////////////////////////////// -->
+	<select id="selectMinorRequestTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="minorFromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectMinorRequestList" resultMap="registerStatusMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="minorFromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	<!-- //////////////////////////////////////////////////////////////////////////////////////////////////////////// -->
+	
+	<!-- 전과 신청 목록 불러오기 ////////////////////////////////////////////////////////////////////////////////////////// -->
+	<select id="selectMoveRequestTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="moveMajorFromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectMoveMajorRequestList" resultMap="registerStatusMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="moveMajorFromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	<!-- //////////////////////////////////////////////////////////////////////////////////////////////////////////// -->
+	
+	
+	<select id="selectRequestInfo" resultMap="registerStatusMap" parameterType="string">
+		SELECT
+		    a.sknrg_no
+		    , a.sknrg_se
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , b.stdnt_telno
+		    , d.subjct_nm sknrg_sttus_major1
+		    , e.clg_nm
+		    , c.sknrg_sttus_grade   
+		    , f.com_code_nm confm_se
+			, SUBSTR(a.sknrg_date,1,2) || '/' || SUBSTR(a.sknrg_date,3,2) || '/' || SUBSTR(a.sknrg_date,4,2) sknrg_date
+            , a.sknrg_return
+            , g.subjct_nm req_subjct_nm
+            , g.subjct_no req_subjct_no
+		FROM
+		    school_register a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN college e on (d.clg_no = e.clg_no)
+		    INNER JOIN com_code f on (a.confm_se = f.com_code)
+            INNER JOIN subject g on (a.subjct_no = g.subjct_no)
+		WHERE
+		    sknrg_no = #{sknrgNo}
+		    AND f.com_code_grp = 'SEC013'
+	</select>
+	
+	<update id="updateRefusedRequestInfo" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		UPDATE school_register
+		SET
+		    sknrg_return = #{sknrgReturn}
+		    , confm_se = '03'
+		WHERE
+		     sknrg_no = #{sknrgNo}
+	</update>
+	
+	<update id="updateAppliedRequestInfo" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		UPDATE school_register
+		SET
+		   confm_se = '02'
+		WHERE
+		     sknrg_no = #{sknrgNo}
+	</update>
+	
+	<insert id="insertAppliedRequestInfo" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		INSERT INTO school_register_history (
+		    semstr_no
+		    , stdnt_no
+		    , sknrg_hist_date
+		    , sknrgs_se
+		) VALUES (
+		    (
+		        SELECT
+		          CASE
+		            WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 1 AND 6 THEN TO_CHAR(SYSDATE, 'YYYY') || '2'
+		            WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 7 AND 12 THEN TO_CHAR(ADD_MONTHS(SYSDATE, 12), 'YYYY') || '1'
+		          END AS formatted_result
+		        FROM dual
+		    )
+		    , #{stdntNo}
+		    , (
+		        SELECT TO_CHAR(SYSDATE, 'YYMMDD') AS formatted_date
+		        FROM dual
+		    )
+		    , '02'
+		)
+	</insert>
+	
+	<update id="updateDoubleMajorStatus" parameterType="kr.ac.usu.user.vo.StudentVO">
+		UPDATE school_register_status
+		SET
+		    sknrg_sttus_major2 = #{sknrgSttusMajor2}
+		WHERE
+		    stdnt_no = #{stdntNo}
+	</update>
+	
+	<update id="updateMinorStatus" parameterType="kr.ac.usu.user.vo.StudentVO">
+		UPDATE school_register_status
+		SET
+		    sknrg_sttus_minor = #{sknrgSttusMinor}
+		WHERE
+		    stdnt_no = #{stdntNo}
+	</update>
+	
+	<update id="updateMoveMajorStatus" parameterType="kr.ac.usu.user.vo.StudentVO">
+		UPDATE school_register_status
+		SET
+		    sknrg_sttus_major1 = #{sknrgSttusMajor1}
+		WHERE
+		    stdnt_no = #{stdntNo}
+	</update>
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

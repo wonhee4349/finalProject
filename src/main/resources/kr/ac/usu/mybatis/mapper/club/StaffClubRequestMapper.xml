@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.club.mapper.StaffClubRequestMapper">
+
+	<resultMap type="kr.ac.usu.club.vo.ClubEstblVO" id="clubRequestMap" autoMapping="true">
+		<id property="clubEsNo" column="CLUB_ES_NO"/>
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true" />
+	</resultMap>
+	
+	<sql id="searchFrag"> 
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'clubEsNm'">
+	    				INSTR(CLUB_ES_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'clubSe'">
+	    				INSTR(CLUB_SE, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<when test="simpleCondition.searchType eq 'confmSe'">
+	    				INSTR(CONFM_SE, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<otherwise>
+	    				INSTR(CLUB_ES_NM, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(CLUB_SE, #{simpleCondition.searchWord}) > 0
+	    				OR
+	    				INSTR(CONFM_SE, #{simpleCondition.searchWord}) > 0
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="fromFrag">
+		SELECT	
+            A.CLUB_ES_NO
+            , A.CLUB_ES_NM
+            , B.STDNT_NM
+            , C.COM_CODE_NM CLUB_SE
+            , D.COM_CODE_NM CONFM_SE
+		FROM
+		    CLUB_ESTBL A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+            INNER JOIN COM_CODE C ON (A.CLUB_SE = C.COM_CODE)
+            INNER JOIN COM_CODE D ON (A.CONFM_SE = D.COM_CODE)
+        WHERE
+            C.COM_CODE_GRP = 'SEC006'
+            AND D.COM_CODE_GRP = 'SEC013'
+        ORDER BY
+            A.CONFM_SE
+	</sql>
+	
+	<!-- 동아리 신청 목록 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="fromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectClubRequestList" resultMap="clubRequestMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="fromFrag" />
+				) B
+			<include refid="searchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 동아리 신청 내역 상세페이지 불러오기 -->
+	<select id="selectClubRequestInfo" resultMap="clubRequestMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT	
+		        SUBSTR(A.CLUB_ES_NO,2) CLUB_ES_NO
+		        , A.CLUB_ES_NM
+		        , B.STDNT_NO
+		        , B.STDNT_NM
+		        , F.SUBJCT_NM SKNRG_STTUS_MAJOR1
+		        , C.COM_CODE_NM CLUB_SE_NM
+		        , D.COM_CODE_NM CONFM_SE
+		        , H.BULD_NM BULD_NO
+		        , G.FCLTS_NM FCLTS_NO_NM
+		        , A.CLUB_ES_INTRCN
+		        , A.CLUB_ES_RETURN
+                , A.CLUB_SE
+                , A.FCLTS_NO
+		    FROM
+		        CLUB_ESTBL A INNER JOIN STUDENT_INFORMATION B ON(A.STDNT_NO = B.STDNT_NO)
+		        INNER JOIN COM_CODE C ON (A.CLUB_SE = C.COM_CODE)
+		        INNER JOIN COM_CODE D ON (A.CONFM_SE = D.COM_CODE)
+		        INNER JOIN SCHOOL_REGISTER_STATUS E ON (A.STDNT_NO = E.STDNT_NO)
+		        INNER JOIN SUBJECT F ON (E.SKNRG_STTUS_MAJOR1 = F.SUBJCT_NO)
+		        INNER JOIN FACILITIES G ON (A.FCLTS_NO = G.FCLTS_NO)
+		        INNER JOIN BUILDING H ON (G.BULD_NO = H.BULD_NO)
+		    WHERE
+		        C.COM_CODE_GRP = 'SEC006'
+		        AND D.COM_CODE_GRP = 'SEC013'
+		        AND A.CLUB_ES_NO = #{clubEsNo}
+		) A
+	</select>
+	
+	<update id="updateRefusedClubRequestInfo" parameterType="kr.ac.usu.club.vo.ClubEstblVO">
+		UPDATE CLUB_ESTBL
+		SET
+		    CONFM_SE = '03'
+		    , CLUB_ES_RETURN = #{clubEsReturn}
+		WHERE
+		   CLUB_ES_NO = 'R' || #{clubEsNo}
+	</update>
+	
+	<update id="updateAppliedClubRequestInfo" parameterType="kr.ac.usu.club.vo.ClubEstblVO">
+		UPDATE CLUB_ESTBL
+		SET
+		    CONFM_SE = '02'
+		WHERE
+		   CLUB_ES_NO = 'R' || #{clubEsNo}
+	</update>
+	
+	<insert id="insertAppliedClubRequest" parameterType="kr.ac.usu.club.vo.ClubVO">
+		INSERT INTO club (
+		    club_no
+		    , club_nm
+		    , stdnt_no
+		    , fclts_no
+		    , club_intrcn
+		    , club_se
+		) VALUES (
+		    #{clubNo}
+		    , #{clubNm}
+		    , #{stdntNo}
+		    , #{fcltsNo}
+		    , #{clubIntrcn}
+		    , #{clubSe}
+		)
+	</insert>
+
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

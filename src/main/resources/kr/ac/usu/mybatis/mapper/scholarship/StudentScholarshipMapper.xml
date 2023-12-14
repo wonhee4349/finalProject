@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper
+	namespace="kr.ac.usu.scholarship.mapper.StudentScholarshipMapper">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일            수정자       수정내용               -->
+<!--  ==========      ======    ==============        -->
+<!--  2023. 11. 21.}     김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+	
+	<resultMap type="kr.ac.usu.scholarship.vo.ScholarshipVO" id="scholarship" autoMapping="true">
+		<id column="SCHLSHIP_NO" property="schlshipNo"/>
+		<association property="scholarshipList" javaType="kr.ac.usu.scholarship.vo.ScholarshipListVO" autoMapping="true" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.scholarship.vo.ScholarshipRequestVO" id="scholarshipRequest" autoMapping="true" >
+		<id property="schlshipNo" column="SCHLSHIP_NO"/>
+		<association property="scholarship" javaType="kr.ac.usu.scholarship.vo.ScholarshipVO" autoMapping="true">
+			<association property="scholarshipList" javaType="kr.ac.usu.scholarship.vo.ScholarshipListVO" autoMapping="true" />
+		</association>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.scholarship.vo.ScholarshipStudentVO" id="scholarStudent" autoMapping="true">
+		<id property="schlshipNo" column="SCHLSHIP_NO"/>
+		<association property="scholarship" javaType="kr.ac.usu.scholarship.vo.ScholarshipVO" autoMapping="true">
+			<association property="scholarshipList" javaType="kr.ac.usu.scholarship.vo.ScholarshipListVO" autoMapping="true" />
+		</association>
+	</resultMap>
+	
+	<select id="selectselectScholarshipTotalRecord" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultType="int">
+		SELECT
+				COUNT(SCHLSHIP_NO)
+			FROM
+			    SCHOLARSHIP S
+			    	INNER JOIN SCHOLARSHIP_LIST SL ON (SL.SCHO_SE = S.SCHO_SE)
+		    WHERE
+		    	SEMSTR_NO = #{detailCondition.semstrNo}
+		    AND
+		    	STNDT_REQ = 'Y'
+	</select>
+	
+	<select id="selectScholarshipList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="scholarship">
+		/* kr.ac.usu.scholarship.mapper.StudentScholarshipMapper.selectScholarshipList */
+		WITH PYMNTSEVIEW AS (
+		    SELECT
+		    COM_CODE,
+		    COM_CODE_GRP,
+		    COM_CODE_NM,
+		    COM_CODE_DESC,
+		    USE_YN,
+		    COM_CODE_SEQ,
+		    UPPER_CODE_GRP,
+		    UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC025'
+		)
+		SELECT A.*
+		FROM
+			(SELECT
+				ROWNUM RNUM
+			    , SCHLSHIP_NO
+			    , SCHLSHIP_TRGTER
+			    , PV.COM_CODE_NM PYMNT_SE
+			    , SEMSTR_NO
+			    , SL.SCHO_NM
+			FROM
+			    SCHOLARSHIP S
+			    	INNER JOIN PYMNTSEVIEW PV ON (S.PYMNT_SE = PV.COM_CODE)
+			    	INNER JOIN SCHOLARSHIP_LIST SL ON (SL.SCHO_SE = S.SCHO_SE)
+		    WHERE
+		    	SEMSTR_NO = #{detailCondition.semstrNo}
+		    AND
+		    	STNDT_REQ = 'Y'
+	    	) A
+		<![CDATA[
+		WHERE
+			RNUM >= #{startRow} AND RNUM <= #{endRow}
+		]]>
+	</select>
+	<select id="selectScholarship" resultMap="scholarship" parameterType="String">
+		/* kr.ac.usu.scholarship.mapper.StudentScholarshipMapper.selectScholarship */
+		WITH PYMNTSEVIEW AS (
+		    SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC025'
+		)
+		SELECT
+		    SCHLSHIP_NO
+		    , SCHLSHIP_TRGTER
+		    , SCHLSHIP_SELECTN
+		    , TO_CHAR(SCHLSHIP_AMOUNT, 'FM999,999,999,999')||' 원' AS SCHLSHIP_AMOUNT_STR
+		    , PV.COM_CODE_NM PYMNT_SE
+		    , SEMSTR_NO
+		    , SL.SCHO_NM
+		FROM
+		    SCHOLARSHIP S
+	    		INNER JOIN PYMNTSEVIEW PV ON (S.PYMNT_SE = PV.COM_CODE)
+	    		INNER JOIN SCHOLARSHIP_LIST SL ON (SL.SCHO_SE = S.SCHO_SE)
+	    WHERE
+	    	SCHLSHIP_NO = #{schlshipNo}
+	</select>
+	<insert id="insertStudentScholarship" parameterType="kr.ac.usu.scholarship.vo.ScholarshipRequestVO">
+		/* kr.ac.usu.scholarship.mapper.StudentScholarshipMapper.insertStudentScholarship */
+		INSERT INTO SCHOLARSHIP_REQUEST (
+		    SCHLSHIP_NO
+		    , STDNT_NO
+		    , SCHLSHIP_REQST_DATE
+		    , ATCH_FILE_NO
+		) VALUES (
+		    #{schlshipNo,jdbcType=VARCHAR}
+			, #{stdntNo,jdbcType=VARCHAR}
+			, TO_CHAR(SYSDATE,'YY/MM/DD')
+			, #{atchFileNo,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<select id="selectStudentRequestScholarshipList" parameterType="HashMap" resultMap="scholarshipRequest">
+		WITH PYMNTSEVIEW AS (
+		    SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC025'
+		)
+		SELECT
+		    SR.SCHLSHIP_NO
+		    , STDNT_NO
+		    , SL.SCHO_NM
+		    , SCHLSHIP_REQST_DATE
+		    , PV.COM_CODE_NM PYMNT_SE
+		    , TO_CHAR(SCHLSHIP_AMOUNT, 'FM999,999,999,999')||' 원' AS SCHLSHIP_AMOUNT_STR
+		    , AF.ATCH_FILE_NO
+		    , CASE WHEN S.SEMSTR_NO != #{semCd} THEN '선발종료'
+		    ELSE '금학기 선발중' END AS RESULT
+		FROM
+		    SCHOLARSHIP_REQUEST SR
+		        INNER JOIN SCHOLARSHIP S ON (S.SCHLSHIP_NO = SR.SCHLSHIP_NO)
+		        INNER JOIN PYMNTSEVIEW PV ON (S.PYMNT_SE = PV.COM_CODE)
+		        INNER JOIN SCHOLARSHIP_LIST SL ON (SL.SCHO_SE = S.SCHO_SE)
+		        LEFT OUTER JOIN ATTACHING_FILE AF ON(SR.ATCH_FILE_NO = AF.ATCH_FILE_NO)
+		WHERE
+		    STDNT_NO = #{id}
+	</select>
+	<select id="selectStudentScholarList" parameterType="HashMap" resultMap="scholarStudent">
+		WITH PYMNTSEVIEW AS (
+	        SELECT
+	        COM_CODE
+	        , COM_CODE_GRP
+	        , COM_CODE_NM
+	        , COM_CODE_DESC
+	        , USE_YN
+	        , COM_CODE_SEQ
+	        , UPPER_CODE_GRP
+	        , UPPER_COM_CODE
+	    FROM
+	        COM_CODE
+	        WHERE COM_CODE_GRP = 'SEC025'
+	    )
+		SELECT
+		    STDNT_NO
+		    , SS.SCHLSHIP_NO
+		    , SCHLSHIP_TRGTER
+		    , SCHLSHIP_SELECTN
+		    , TO_CHAR(SCHLSHIP_AMOUNT, 'FM999,999,999,999')||' 원' AS SCHLSHIP_AMOUNT_STR
+		    , PV.COM_CODE_NM PYMNT_SE
+		    , SEMSTR_NO
+		    , SL.SCHO_NM
+		FROM
+		    SCHOLARSHIP_STUDENT SS
+		        INNER JOIN SCHOLARSHIP S ON (S.SCHLSHIP_NO = SS.SCHLSHIP_NO)
+		        INNER JOIN PYMNTSEVIEW PV ON (S.PYMNT_SE = PV.COM_CODE)
+		        INNER JOIN SCHOLARSHIP_LIST SL ON (SL.SCHO_SE = S.SCHO_SE)
+		WHERE
+		    STDNT_NO = #{id}
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(semCd)">
+			AND
+				SEMSTR_NO = #{semCd}
+		</if>
+	</select>
+	
+	<select id="selectStudentScholarSemCdList" parameterType="String" resultType="HashMap">
+		SELECT DISTINCT
+		    SEMSTR_NO "key"
+            , SUBSTR(SEMSTR_NO,1,4)||'년 ' ||SUBSTR(SEMSTR_NO,5,1) ||'학기' AS "value"
+		FROM
+		    SCHOLARSHIP_STUDENT SS
+		        INNER JOIN SCHOLARSHIP S ON (S.SCHLSHIP_NO = SS.SCHLSHIP_NO)
+		WHERE
+		    STDNT_NO = #{stdntNo}
+	</select>
+	
+	<insert id="insertStudentScholarshipAttatchFile">
+		/* kr.ac.usu.scholarship.mapper.StudentScholarshipMapper.insertStudentScholarshipAttatchFile */
+		SELECT SYSDATE FROM DUAL
+	</insert>
+</mapper>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.mail.mapper.MailMapper">
+
+	<!-- resultMap 정의: EmailRoomVO 클래스의 객체를 결과로 받기 위한 매핑 -->
+	<resultMap type="kr.ac.usu.mail.vo.EmailRoomVO"
+		id="emailRoomMap" autoMapping="true">
+		<!-- id 프로퍼티와 EMAIL_NO 컬럼 간의 매핑 -->
+		<id property="emailNo" column="EMAIL_NO" />
+		<!-- Add other mappings as needed -->
+		<result property="emailSender" column="EMAIL_SENDER" />
+	</resultMap>
+
+	<!-- 검색 조건을 생성하기 위한 SQL 코드 조각 -->
+	<sql id="searchFrag">
+		<where>
+			1=1
+			<if
+				test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+				AND
+				<choose>
+					<when test="simpleCondition.searchType eq 'emailTitle'">
+						INSTR(EMAIL_TITLE, #{simpleCondition.searchWord}) > 0
+					</when>
+					<when test="simpleCondition.searchType eq 'emailSender'">
+						INSTR(EMAIL_SENDER, #{simpleCondition.searchWord}) > 0
+					</when>
+					<otherwise>
+						INSTR(EMAIL_TITLE, #{simpleCondition.searchWord}) > 0
+						OR
+						INSTR(EMAIL_SENDER, #{simpleCondition.searchWord}) > 0
+					</otherwise>
+				</choose>
+			</if>
+			<if test="detailCondition neq null">
+				<if test=" @org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.emailRcver)">
+				AND EMAIL_RCVER = #{detailCondition.emailRcver}
+				</if>
+			</if>
+		</where>
+	</sql>
+
+<!-- 메일 리스트 조회 -->
+<select id="selectMailList" resultMap="emailRoomMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+    SELECT T.*
+    FROM (
+        SELECT ROW_NUMBER() OVER(ORDER BY EMAIL_SNDNG_DATE DESC, EMAIL_NO DESC) RN,
+            EMAIL_NO,
+            EMAIL_SENDER,
+            EMAIL_TITLE,
+            EMAIL_SNDNG_DATE
+        FROM EMAIL_ROOM        
+        <include refid="searchFrag" />
+    ) T
+    WHERE RN BETWEEN #{startRow} AND #{endRow}
+</select>
+
+	<!-- 전체 메일 수 조회 -->
+	<select id="selectTotalRecord" resultType="int"
+		parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM EMAIL_ROOM
+		<include refid="searchFrag" />
+	</select>
+	
+	
+
+<!-- 메일 저장 -->
+<insert id="createMail" parameterType="kr.ac.usu.mail.vo.EmailRoomVO">
+    <selectKey keyProperty="emailNo" resultType="String" order="BEFORE">
+        SELECT email_sequence.NEXTVAL FROM DUAL
+    </selectKey>
+    INSERT INTO EMAIL_ROOM (
+        EMAIL_SENDER,
+        EMAIL_RCVER,
+        EMAIL_TITLE,
+        EMAIL_CN,
+        <if test="emailSenderSave != null">
+        EMAIL_SENDER_SAVE,
+        </if>
+         <if test="emailRcverSave != null">
+        EMAIL_RCVER_SAVE,
+        </if>
+        EMAIL_SNDNG_DATE,
+         <if test="atchFileNo != null">
+        ATCH_FILE_NO,
+        </if>
+        EMAIL_NO
+    )
+    VALUES (   
+        #{emailSender},
+        #{emailRcver},
+        #{emailTitle},
+        #{emailCn},
+        <if test="emailSenderSave != null">
+        #{emailSenderSave},
+        </if>
+         <if test="emailRcverSave != null">
+        #{emailRcverSave},
+        </if>     
+        SYSDATE,
+         <if test="atchFileNo != null">
+        #{atchFileNo},
+        </if>
+        #{emailNo}
+    )
+</insert>
+
+<select id="countMail" parameterType="kr.ac.usu.mail.vo.EmailRoomVO" resultType="int">
+	select count (*) from EMAIL_ROOM
+	where EMAIL_RCVER = #{emailRcver} and 
+	EMAIL_READ_CHECK = 'N'
+</select>
+
+
+
+
+<select id="getMail" parameterType="kr.ac.usu.mail.vo.EmailRoomVO" >
+	select * from EMAIL_ROOM
+	where EMAIL_RCVER = #{emailRcver} and 
+	EMAIL_NO = #{emailNo}
+	
+</select>
+
+<select id="getSendMail" parameterType="kr.ac.usu.mail.vo.EmailRoomVO" >
+	select * from EMAIL_ROOM
+	where EMAIL_SENDER = #{emailSender} and 
+	EMAIL_NO = #{emailNo}
+	
+</select>
+
+<update id="updateMail">
+ update EMAIL_ROOM
+ set EMAIL_READ_CHECK='Y'
+ where EMAIL_RCVER = #{emailRcver} and 
+	EMAIL_NO = #{emailNo}
+
+</update>
+
+
+<!-- 메일 리스트 조회 - 보낸 메일만 조회하고 발신자가 현재 로그인한 사용자와 일치하는 경우에만 -->
+<select id="retrieveSendMail" resultMap="emailRoomMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+	SELECT T.*
+	FROM (
+	    SELECT ROW_NUMBER() OVER(ORDER BY EMAIL_SNDNG_DATE DESC, EMAIL_NO DESC) RN,
+	        EMAIL_NO,
+	        EMAIL_SENDER,
+	        EMAIL_RCVER,
+	        EMAIL_TITLE,
+	        EMAIL_SNDNG_DATE
+	    FROM EMAIL_ROOM
+	    WHERE 1 = 1
+	    AND    EMAIL_SENDER = #{simpleCondition.searchWord}
+	) T
+	WHERE RN BETWEEN #{startRow} AND #{endRow}
+</select>
+
+
+
+
+<!-- 메일 삭제 -->
+<delete id="removeMail" parameterType="kr.ac.usu.mail.vo.EmailRoomVO">
+    DELETE FROM EMAIL_ROOM
+    WHERE EMAIL_NO = #{emailNo}
+</delete>
+
+
+
+</mapper>

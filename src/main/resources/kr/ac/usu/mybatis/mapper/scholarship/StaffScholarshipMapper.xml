@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.scholarship.mapper.StaffScholarshipMapper">
+
+	<resultMap type="kr.ac.usu.scholarship.vo.ScholarshipVO" id="scMap" autoMapping="true">
+		<id property="schlshipNo" column="SCHLSHIP_NO"/>
+		<association property="semester" autoMapping="true" />
+		<association property="scholarshipList" autoMapping="true" />
+	</resultMap>
+	
+	 <sql id="searchFrag"> 
+		<where>
+	    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+	    		<choose>
+	    			<when test="simpleCondition.searchType eq 'schoNm'">
+	    				INSTR(SCHO_NM, #{simpleCondition.searchWord}) > 0
+	    			</when>
+	    			<otherwise>
+	    				INSTR(SCHO_NM, #{simpleCondition.searchWord}) > 0
+	    			</otherwise>
+	    		</choose>
+	    	</if>
+	    </where>
+	</sql>
+	
+	<sql id="fromFrag">
+		SELECT					
+		    A.SCHLSHIP_NO
+		    , B.SCHO_NM
+		    , C.COM_CODE_NM PYMNT_SE
+		    , SUBSTR(A.SEMSTR_NO,1,4) SEMSTR_YEAR
+		    , SUBSTR(A.SEMSTR_NO,5,1) SEMSTR_NO
+		FROM
+		    SCHOLARSHIP A INNER JOIN SCHOLARSHIP_LIST B ON(A.SCHO_SE = B.SCHO_SE)
+		    INNER JOIN COM_CODE C ON (A.PYMNT_SE = C.COM_CODE)
+		WHERE
+		    C.COM_CODE_GRP = 'SEC025'
+		ORDER BY
+    		A.SEMSTR_NO DESC, C.COM_CODE_NM
+	</sql>
+	
+	<!-- 장학금 목록 불러오기 -->
+	<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="fromFrag" />)
+			
+		<include refid="searchFrag" />
+	</select>
+	
+	<select id="selectScholarshipList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="scMap">
+		SELECT A.*
+		FROM (
+		    SELECT ROWNUM RNUM, B.*
+		    FROM(
+		        <include refid="fromFrag"></include>
+		        ) B
+		    <include refid="searchFrag"></include>
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	
+	<!-- 장학금 상세 페이지 불러오기 -->
+	<select id="selectScholarshipInfo" resultMap="scMap" parameterType="string">
+		SELECT A.*
+		FROM (
+		    SELECT					
+			    A.SCHLSHIP_NO
+			    , B.SCHO_NM
+			    , A.SCHLSHIP_TRGTER
+			    , SCHLSHIP_SELECTN
+			    , TO_CHAR(A.SCHLSHIP_AMOUNT, 'FM999,999,999,999')||' 원' AS SCHLSHIP_AMOUNT_STR
+			    , C.COM_CODE_NM PYMNT_SE
+			    , SUBSTR(A.SEMSTR_NO,1,4) SEMSTR_YEAR
+			    , SUBSTR(A.SEMSTR_NO,5,1) SEMSTR_NO
+			FROM
+			    SCHOLARSHIP A INNER JOIN SCHOLARSHIP_LIST B ON(A.SCHO_SE = B.SCHO_SE)
+			    INNER JOIN COM_CODE C ON (A.PYMNT_SE = C.COM_CODE)
+			WHERE
+			    C.COM_CODE_GRP = 'SEC025'
+			     AND A.SCHLSHIP_NO = #{schlshipNo}
+		) A
+	</select>
+	
+	<!-- 총장학금 목록 불러오기 -->
+	<select id="selectTotalScholarshipRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(
+			SELECT
+			    SCHO_NM
+			FROM
+			    SCHOLARSHIP_LIST
+			ORDER BY SCHO_NM
+		)
+	</select>
+	
+	<select id="selectTotalScholarshipList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultType="kr.ac.usu.scholarship.vo.ScholarshipListVO">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				SELECT
+				    SCHO_NM
+				FROM
+				    SCHOLARSHIP_LIST
+				ORDER BY SCHO_NM
+			) B
+		) A		
+	</select>
+	
+	<!-- 새로운 장학금 인서트 -->
+	<insert id="insertTotalScholarship" parameterType="kr.ac.usu.scholarship.vo.ScholarshipListVO">
+		<selectKey keyProperty="schoSe" order="BEFORE" resultType="string">
+			SELECT
+			    'SC' || LPAD(TO_CHAR(MAX(SUBSTR(SCHO_SE,3))+1),3,'0')
+			FROM
+				SCHOLARSHIP_LIST
+		</selectKey>
+			INSERT INTO SCHOLARSHIP_LIST (
+				scho_se
+    			, scho_nm
+			) VALUES(
+				#{schoSe}
+				, #{schoNm}
+			)
+	</insert>
+	
+	<!-- 장학금 추가 장학금 셀렉트박스 불러오기 -->
+	<select id="selectInsertScholarshipList" resultMap="scMap">
+		SELECT
+		    scho_se,
+		    scho_nm
+		FROM
+		    scholarship_list
+	</select>
+	
+	<!-- 새로운 학기별 장학금 인서트 -->
+	<insert id="insertScholarship" parameterType="kr.ac.usu.scholarship.vo.ScholarshipVO">
+	<selectKey keyProperty="schlshipNo" order="BEFORE" resultType="string">
+			SELECT
+		    	SCHO_SE || #{semstrNo}
+		    FROM
+		        SCHOLARSHIP_LIST
+		    WHERE
+		        SCHO_SE = #{schoSe}
+		</selectKey>
+		INSERT INTO scholarship (
+		    schlship_no
+		    , schlship_trgter
+		    , schlship_selectn
+		    , schlship_amount
+		    , pymnt_se
+		    , semstr_no
+		    , scho_se
+		    , stndt_req
+		) VALUES (
+		    #{schlshipNo}
+		    , #{schlshipTrgter}
+		    , #{schlshipSelectn}
+		    , #{schlshipAmount}
+		    , #{pymntSe}
+		    , #{semstrNo}
+		    , #{schoSe}
+		    , #{stndtReq}
+		)
+	</insert>
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

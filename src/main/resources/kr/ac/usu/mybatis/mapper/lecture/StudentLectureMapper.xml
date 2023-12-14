@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.lecture.mapper.StudentLectureMapper">
+	<resultMap type="kr.ac.usu.lecture.vo.LectureVO" id="lecture" autoMapping="true">
+		<id property="lctreNo" column="LCTRE_NO"/>
+		<association property="professor" javaType="kr.ac.usu.user.vo.ProfessorVO" autoMapping="true" />
+		<association property="course" javaType="kr.ac.usu.course.vo.CourseVO" autoMapping="true" />
+		<collection property="timetable" ofType="kr.ac.usu.lecture.vo.LectureTimetableVO" autoMapping="true">
+		</collection>
+	</resultMap>
+
+
+	<select id="selectStudentLectureList" resultMap="lecture" parameterType="HashMap">
+		WITH COMMONVIEW AS (
+		    SELECT *
+		    FROM COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC014'
+		), COMMONVIEW2 AS (
+		    SELECT *
+		    FROM COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC015'
+		), TIMETABLES AS (
+		    SELECT *
+		    FROM COM_CODE
+		    WHERE COM_CODE_GRP = 'SEC011'
+		)
+		SELECT
+			L.LCTRE_NO
+	        , L.LCTRE_NMPR
+	        , CM2.COM_CODE_NM LCTRE_SE
+	        , L.FCLTS_NO
+	        , L.PRFSOR_NO
+	        , L.SEMSTR_SE
+	        , L.COURSE_NO
+			, P.PRFSOR_NM
+			, C.COURSE_NM
+			, C.COURSE_PNT
+	        , CM.COM_CODE_NM COMPL_SE
+	        , TT.COM_CODE_NM TMTBSE
+		FROM
+			ATTENDANCE_LECTURE ALQ INNER JOIN LECTURE L ON (ALQ.LCTRE_NO = L.LCTRE_NO)
+			INNER JOIN PROFESSOR P ON (P.PRFSOR_NO = L.PRFSOR_NO)
+			INNER JOIN COURSE C ON (C.COURSE_NO = L.COURSE_NO)
+	        INNER JOIN COMMONVIEW CM ON (L.COMPL_SE = CM.COM_CODE)
+	        INNER JOIN COMMONVIEW2 CM2 ON (L.LCTRE_SE = CM2.COM_CODE)
+	        INNER JOIN LECTURE_TIMETABLE LT ON (LT.LCTRE_NO = L.LCTRE_NO)
+	        INNER JOIN TIMETABLES TT ON (TT.COM_CODE = LT.TMTB_SE)
+		WHERE
+			ALQ.STDNT_NO = #{id}
+		AND
+			L.SEMSTR_SE = #{semCd}
+	</select>
+</mapper>

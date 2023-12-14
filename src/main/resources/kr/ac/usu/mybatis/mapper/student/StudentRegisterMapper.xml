@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--  [[개정이력(Modification Information)]]       -->
+<!--  수정일          수정자     수정내용               -->
+<!--  ==========   ======    ==============        -->
+<!--  2023. 11. 14.       김석호     최초작성               -->
+<!--  Copyright (c) 2023 by DDIT All right reserved -->
+<mapper namespace="kr.ac.usu.student.mapper.StudentRegisterMapper">
+
+	<select id="selectRegisterRequestList" resultType="kr.ac.usu.student.vo.SchoolRegisterVO" parameterType="String">
+		/* kr.ac.usu.student.mapper.StudentRegisterMapper.selectRegisterRequestList */
+		WITH COMVIEW AS (
+			SELECT
+			    COM_CODE
+			    , COM_CODE_GRP
+			    , COM_CODE_NM
+			    , COM_CODE_DESC
+			    , USE_YN
+			    , COM_CODE_SEQ
+			    , UPPER_CODE_GRP
+			    , UPPER_COM_CODE
+			FROM
+			    COM_CODE
+			WHERE
+				COM_CODE_GRP = 'SEC013'
+		), SKNRGVIEW AS (
+			SELECT
+			    COM_CODE
+			    , COM_CODE_GRP
+			    , COM_CODE_NM
+			    , COM_CODE_DESC
+			    , USE_YN
+			    , COM_CODE_SEQ
+			    , UPPER_CODE_GRP
+			    , UPPER_COM_CODE
+			FROM
+			    COM_CODE
+			WHERE
+				COM_CODE_GRP = 'SEC024'
+		)
+		SELECT
+		    SKNRG_NO
+		    , SV.COM_CODE_NM SKNRG_SE
+		    , STDNT_NO
+		    , SKNRG_DATE
+		    , C.COM_CODE_NM CONFM_SE
+		    , SKNRG_RETURN
+		    , SR.SUBJCT_NO
+		    , S.SUBJCT_NM
+		    , TARGET_SEM
+		FROM
+		    SCHOOL_REGISTER SR INNER JOIN COMVIEW C ON (SR.CONFM_SE = C.COM_CODE)
+		    INNER JOIN SKNRGVIEW SV ON (SR.SKNRG_SE = SV.COM_CODE)
+		    LEFT OUTER JOIN SUBJECT S ON (S.SUBJCT_NO = SR.SUBJCT_NO)
+		WHERE
+			STDNT_NO = #{stdntNo}
+	</select>
+	
+	<select id="selectRegisterRequest" resultType="kr.ac.usu.student.vo.SchoolRegisterVO" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		/* kr.ac.usu.student.mapper.StudentRegisterMapper.selectRegisterRequest */
+		WITH COMVIEW AS (
+			SELECT
+			    COM_CODE
+			    , COM_CODE_GRP
+			    , COM_CODE_NM
+			    , COM_CODE_DESC
+			    , USE_YN
+			    , COM_CODE_SEQ
+			    , UPPER_CODE_GRP
+			    , UPPER_COM_CODE
+			FROM
+			    COM_CODE
+			WHERE
+				COM_CODE_GRP = 'SEC013'
+		), SKNRGVIEW AS (
+			SELECT
+			    COM_CODE
+			    , COM_CODE_GRP
+			    , COM_CODE_NM
+			    , COM_CODE_DESC
+			    , USE_YN
+			    , COM_CODE_SEQ
+			    , UPPER_CODE_GRP
+			    , UPPER_COM_CODE
+			FROM
+			    COM_CODE
+			WHERE
+				COM_CODE_GRP = 'SEC024'
+		)
+		SELECT
+		    SKNRG_NO
+		    , SV.COM_CODE_NM SKNRG_SE
+		    , STDNT_NO
+		    , SKNRG_DATE
+		    , C.COM_CODE_NM CONFM_SE
+		    , SKNRG_RETURN
+		    , SR.SUBJCT_NO
+		    , S.SUBJCT_NM
+		    , TARGET_SEM
+		FROM
+		    SCHOOL_REGISTER SR INNER JOIN COMVIEW C ON (SR.CONFM_SE = C.COM_CODE)
+		    INNER JOIN SKNRGVIEW SV ON (SR.SKNRG_SE = SV.COM_CODE)
+		    LEFT OUTER JOIN SUBJECT S ON (S.SUBJCT_NO = SR.SUBJCT_NO) 
+		WHERE
+			SKNRG_NO = #{sknrgNo}
+		AND
+			STDNT_NO = #{stdntNo}
+	</select>
+	
+	<insert id="insertRegisterRequest" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		<selectKey resultType="String" keyProperty="sknrgNo" order="BEFORE">
+			select
+				'R'|| #{sknrgSe} || TO_CHAR(SYSDATE,'YYMMDD') || 
+				(SELECT LPAD((NVL(MAX(SUBSTR(SKNRG_NO,10)),0)) +1,4,'0')
+				FROM
+					SCHOOL_REGISTER
+				WHERE
+					SUBSTR(SKNRG_NO,2,2) = #{sknrgSe}
+				AND
+					SUBSTR(SKNRG_NO,4,6) = (SELECT TO_CHAR(SYSDATE,'YYMMDD') FROM DUAL))
+			FROM
+				DUAL
+		</selectKey>
+		/* kr.ac.usu.student.mapper.StudentRegisterMapper.insertRegisterRequest */
+		INSERT INTO SCHOOL_REGISTER (
+		    SKNRG_NO
+		    , SKNRG_SE
+		    , STDNT_NO
+		    , SKNRG_DATE
+		    , CONFM_SE
+		    , SUBJCT_NO
+		    , TARGET_SEM
+		) VALUES (
+			#{sknrgNo,jdbcType=VARCHAR}
+			, #{sknrgSe,jdbcType=VARCHAR}
+			, #{stdntNo,jdbcType=VARCHAR}
+			, (SELECT TO_CHAR(SYSDATE,'YYMMDD') FROM DUAL)
+			, '01'
+			, #{subjctNo,jdbcType=VARCHAR}
+			, #{targetSem,jdbcType=VARCHAR}
+		)
+	</insert>
+	<delete id="deleteRegisterRequest" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		/* kr.ac.usu.student.mapper.StudentRegisterMapper.deleteRegisterRequest */
+		DELETE FROM SCHOOL_REGISTER
+		WHERE
+			SKNRG_NO = #{sknrgNo}
+		AND
+			STDNT_NO = #{stdntNo}
+	</delete>
+	<select id="selectRequestableSubject" parameterType="kr.ac.usu.user.vo.StudentVO" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		/* kr.ac.usu.student.mapper.StudentRegisterMapper.selectRequestableSubject */
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NO
+		FROM
+		    SUBJECT
+		WHERE
+			SUBJCT_NO != #{sknrgSttusMajor1}
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(sknrgSttusMajor2)">
+			AND SUBJCT_NO != #{sknrgSttusMajor2}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(sknrgSttusMinor)">
+			AND SUBJCT_NO != #{sknrgSttusMinor}
+		</if>
+	</select>
+	<select id="selectCollegeList" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		/* kr.ac.usu.student.mapper.StudentRegisterMapper.selectCollegeList */
+		SELECT
+		    CLG_NO
+		    , CLG_NM
+		FROM
+		    COLLEGE
+	</select>
+	
+	<select id="selecteDuplicateRequest" resultType="int" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		/* kr.ac.usu.student.mapper.StudentRegisterMapper.selecteDuplicateRequest */
+		SELECT
+			COUNT(*)
+		FROM
+			SCHOOL_REGISTER
+		WHERE
+			STDNT_NO = #{stdntNo}
+		AND
+			TARGET_SEM = #{targetSem}
+	</select>
+	
+</mapper>
+

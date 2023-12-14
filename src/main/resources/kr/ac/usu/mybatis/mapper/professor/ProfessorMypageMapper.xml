@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.professor.mapper.ProfessorMypageMapper">
+
+	<resultMap type="kr.ac.usu.user.vo.ProfessorVO" id="profMap" autoMapping="true">
+		<id property="prfsorNo" column="PRFSOR_NO"/>
+		<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+			<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+		</association>
+	</resultMap>
+
+	<!-- 교수 인적 정보 불러오기 -->
+	<select id="selectProfessorInfo" parameterType="string" resultMap="profMap">
+		SELECT
+		    prfsor_no
+		    , prfsor_password
+		    , prfsor_nm
+		    , SUBSTR(prfsor_ihidnum1,1,2) || '/' || SUBSTR(prfsor_ihidnum1,3,2) || '/' || SUBSTR(prfsor_ihidnum1,5,2) prfsor_ihidnum1
+		    , prfsor_zip
+		    , prfsor_adres1
+		    , prfsor_adres2
+		    , prfsor_telno
+		    , SUBSTR(prfsor_emplmn,3,2) || '/' || SUBSTR(prfsor_emplmn,6,2) || '/' || SUBSTR(prfsor_emplmn,9,2) prfsor_emplmn
+		    , prfsor_retire
+		    , b.com_code_nm prfsor_emplyn_form
+		    , c.com_code_nm prfsor_nlty
+		    , d.com_code_nm sexdstn_se
+		    , e.subjct_nm
+		    , f.clg_nm
+		FROM
+		    professor a INNER JOIN com_code b on (a.prfsor_emplyn_form = b.com_code)
+		    INNER JOIN com_code c on (a.prfsor_nlty = c.com_code)
+		    INNER JOIN com_code d on (a.sexdstn_se = d.com_code)
+		    INNER JOIN subject e on (a.subjct_no = e.subjct_no)
+		    INNER JOIN college f on (e.clg_no = f.clg_no)
+		    
+		WHERE
+		    prfsor_no = #{prfsorNo}
+		    AND b.com_code_grp = 'SEC003'
+		    AND c.com_code_grp = 'SEC002'
+		    AND d.com_code_grp = 'SEC001'
+	</select>
+
+	<!-- 셀렉트박스 불러오기 /////////////////////////////////////////////////////////////// -->
+	
+	<!-- 공통코드 -->
+	<select id="selectComCode" resultType="kr.ac.usu.user.vo.ComCodeVO" parameterType="string">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_NM
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	<!-- ////////////////////////////////////////////////////////////////////////////// -->
+
+	<!-- 내정보 수정 -->
+	<update id="updateMypage" parameterType="kr.ac.usu.user.vo.ProfessorVO">
+		UPDATE professor
+		SET
+		    prfsor_zip = #{prfsorZip}
+		    , prfsor_adres1 = #{prfsorAdres1}
+		    , prfsor_adres2 = #{prfsorAdres2}
+		    , prfsor_telno = #{prfsorTelno}
+		WHERE
+		    prfsor_no = #{prfsorNo}
+	</update>
+	
+	<!-- 비밀번호 수정 -->
+	<update id="updatePass" parameterType="kr.ac.usu.user.vo.ProfessorVO">
+		UPDATE professor
+		SET
+		    prfsor_password = #{prfsorPassword}
+		WHERE
+		    prfsor_no = #{prfsorNo}
+	</update>
+	
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

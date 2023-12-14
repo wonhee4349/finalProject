@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.board.mapper.ProfessorNoticeListMapper">
+
+<resultMap type="kr.ac.usu.board.vo.BoardVO" id="boardMap" autoMapping="true">
+		<id property="boNo" column="BO_NO"/>
+		<association property="staff" javaType="kr.ac.usu.user.vo.StaffVO" autoMapping="true" />
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.user.vo.StaffVO" id="staffMap" autoMapping="true">
+		<id property="sklstfNo" column="SKLSTF_NO"/>
+	</resultMap>
+
+<sql id="searchPro">
+    <where>
+    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+    		<choose>
+    		<when test="simpleCondition.searchType eq 'BO_TITLE'">
+    			INSTR(BO_TITLE, #{simpleCondition.searchWord}) > 0
+    		</when>		
+    		<when test="simpleCondition.searchType eq 'BO_WRTER'">
+    			INSTR(BO_WRTER, #{simpleCondition.searchWord}) > 0
+    		</when>
+    		<otherwise>
+    			INSTR(BO_TITLE, #{simpleCondition.searchWord}) > 0
+    			OR
+    			INSTR(BO_WRTER, #{simpleCondition.searchWord}) > 0
+    		</otherwise>		
+    		</choose>
+    	</if>
+    </where>
+   </sql>
+
+
+<select id="selectTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+	SELECT COUNT(*)
+	FROM BOARD
+	<include refid="searchPro"/>
+</select>
+
+	<select id="selectNoticeList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="boardMap">
+	WITH BORD AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC008'
+	)
+		SELECT
+			A.* 
+		FROM (
+			SELECT
+				ROWNUM RNUM
+			    ,B.BO_NO,
+			    B.BO_WRTER,
+			    B.BO_DATE,
+			    B.BO_TITLE,
+			    B.BO_CN,
+			    B.BO_CNT,
+			    BR.COM_CODE_NM BD_SE,
+			    B.ATCH_FILE_NO,
+			    S.SKLSTF_NO,
+			    S.SKLSTF_NM			  
+			FROM
+			    BOARD B
+			JOIN
+			    STAFF S ON B.BO_WRTER = S.SKLSTF_NO
+			    INNER JOIN BORD BR ON (BR.COM_CODE = B.BD_SE)    
+			    <include refid="searchPro"/>
+			WHERE
+            	BR.COM_CODE = '01'
+            	ORDER BY RNUM DESC
+			    ) A
+			<![CDATA[
+			WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+			]]>
+	</select>
+	
+	<sql id="searchCom">
+    <where>
+    	<if test="simpleCondition neq null and @org.apache.commons.lang3.StringUtils@isNotBlank(simpleCondition.searchWord)">
+    		<choose>
+    		<when test="simpleCondition.searchType eq 'BO_TITLE'">
+    			INSTR(BO_TITLE, #{simpleCondition.searchWord}) > 0
+    		</when>		
+    		<when test="simpleCondition.searchType eq 'BO_WRTER'">
+    			INSTR(BO_WRTER, #{simpleCondition.searchWord}) > 0
+    		</when>
+    		<otherwise>
+    			INSTR(BO_TITLE, #{simpleCondition.searchWord}) > 0
+    			OR
+    			INSTR(BO_WRTER, #{simpleCondition.searchWord}) > 0
+    		</otherwise>		
+    		</choose>
+    	</if>
+    </where>
+   </sql>
+
+
+<select id="selectCommonTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+	SELECT COUNT(*)
+	FROM BOARD
+	<include refid="searchCom"/>
+</select>
+
+	<select id="selectCommonNoticeList" parameterType="kr.ac.usu.paging.vo.PaginationInfo" resultMap="boardMap">
+	WITH BORD AS (
+		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC008'
+	)
+		SELECT
+			A.* 
+		FROM (
+			SELECT
+				ROWNUM RNUM
+			    ,B.BO_NO,
+			    B.BO_WRTER,
+			    B.BO_DATE,
+			    B.BO_TITLE,
+			    B.BO_CN,
+			    B.BO_CNT,
+			    BR.COM_CODE_NM BD_SE,
+			    B.ATCH_FILE_NO,
+			    S.SKLSTF_NO,
+			    S.SKLSTF_NM			  
+			FROM
+			    BOARD B
+			JOIN
+			    STAFF S ON B.BO_WRTER = S.SKLSTF_NO
+			    INNER JOIN BORD BR ON (BR.COM_CODE = B.BD_SE)    
+			    <include refid="searchPro"/>
+			WHERE
+            	BR.COM_CODE = '02'
+            	ORDER BY RNUM DESC
+			    ) A
+			<![CDATA[
+			WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+			]]>
+	</select>
+	
+	<select id="selectNotice" resultType="kr.ac.usu.board.vo.BoardVO" parameterType="string" resultMap="boardMap">
+		WITH BORD AS (
+    		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC008'
+		)
+		SELECT
+   				ROWNUM RNUM
+			    ,B.BO_NO,
+			    B.BO_WRTER,
+			    B.BO_DATE,
+			    B.BO_TITLE,
+			    B.BO_CN,
+			    B.BO_CNT,
+			    BO.COM_CODE_NM BD_SE,
+			    B.ATCH_FILE_NO,
+			    S.SKLSTF_NO,
+			    S.SKLSTF_NM		
+		FROM
+   		 	BOARD B
+		JOIN
+    		STAFF S ON B.BO_WRTER = S.SKLSTF_NO
+    		INNER JOIN BORD BO ON BO.COM_CODE = B.BD_SE
+		WHERE
+    		B.BO_NO = #{boNo}
+		
+	</select>
+	
+	<select id="selectCommonNotice" resultType="kr.ac.usu.board.vo.BoardVO" parameterType="string" resultMap="boardMap">
+		WITH BORD AS (
+    		SELECT * FROM COM_CODE WHERE COM_CODE_GRP = 'SEC008'
+		)
+		SELECT
+   				ROWNUM RNUM
+			    ,B.BO_NO,
+			    B.BO_WRTER,
+			    B.BO_DATE,
+			    B.BO_TITLE,
+			    B.BO_CN,
+			    B.BO_CNT,
+			    BO.COM_CODE_NM BD_SE,
+			    B.ATCH_FILE_NO,
+			    S.SKLSTF_NO,
+			    S.SKLSTF_NM		
+		FROM
+   		 	BOARD B
+		JOIN
+    		STAFF S ON B.BO_WRTER = S.SKLSTF_NO
+    		INNER JOIN BORD BO ON BO.COM_CODE = B.BD_SE
+		WHERE
+    		B.BO_NO = #{boNo}
+		
+	</select>
+	
+	<update id="updateCntNotice" parameterType="String">
+		UPDATE
+			BOARD
+		SET
+			BO_CNT = BO_CNT + 1
+		WHERE
+		 BO_NO = #{boNo}
+	
+	</update>
+	
+	<insert id="insertNotice" parameterType="kr.ac.usu.board.vo.BoardVO">
+		<selectKey keyProperty="boNo" order="BEFORE" resultType="String">
+			SELECT 'BD'||#{bdSe}|| TO_CHAR(SYSDATE,'YYMMDD') ||LPAD(NVL(MAX(SUBSTR(BO_NO,11)),0)+1,3,'0')
+			FROM BOARD
+			WHERE BD_SE = #{bdSe}
+			AND SUBSTR(BO_NO,5,6) = TO_CHAR(SYSDATE,'YYMMDD')
+    	</selectKey>
+   
+    INSERT INTO BOARD (
+       	BO_NO,
+       	BO_WRTER,
+       	BO_DATE,
+       	BO_TITLE,
+       	BO_CN,
+       	BO_CNT,
+       	BD_SE
+    ) VALUES (
+        #{boNo,jdbcType=VARCHAR},
+        #{boWrter,jdbcType=VARCHAR},
+        TO_CHAR(SYSDATE,'YY/MM/DD'),
+        #{boTitle,jdbcType=VARCHAR},
+        #{boCn,jdbcType=VARCHAR},
+        0,
+        #{bdSe,jdbcType=VARCHAR}
+    )
+</insert>
+	
+	<select id="selectComCode" parameterType="String" resultType="kr.ac.usu.user.vo.ComCodeVO">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_GRP
+		    , COM_CODE_NM
+		    , COM_CODE_DESC
+		    , USE_YN
+		    , COM_CODE_SEQ
+		    , UPPER_CODE_GRP
+		    , UPPER_COM_CODE
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+			AND COM_CODE_SEQ <![CDATA[ < 3			
+			]]>
+	</select>
+	
+	<update id="updateNotice" parameterType="kr.ac.usu.board.vo.BoardVO">
+	
+	UPDATE BOARD
+SET 
+    BO_NO = #{boNo, jdbcType=VARCHAR},
+    BO_WRTER = #{boWrter, jdbcType=VARCHAR},
+    BO_DATE=TO_CHAR(SYSDATE,'YY/MM/DD'),
+    BO_TITLE = #{boTitle, jdbcType=VARCHAR},
+    BO_CN = #{boCn, jdbcType=VARCHAR},
+    BD_SE = #{bdSe, jdbcType=VARCHAR}
+WHERE
+    BO_NO = #{boNo, jdbcType=VARCHAR}
+	</update>
+	
+	<select id="selectStaffList" resultMap="staffMap">
+		SELECT
+			SKLSTF_NO
+			, SKLSTF_NM
+		FROM
+			STAFF
+	</select>
+	
+	<update id="updateCommonNotice" parameterType="kr.ac.usu.board.vo.BoardVO">
+	
+	UPDATE BOARD
+SET 
+    BO_NO = #{boNo, jdbcType=VARCHAR},
+    BO_WRTER = #{boWrter, jdbcType=VARCHAR},
+    BO_DATE=TO_CHAR(SYSDATE,'YY/MM/DD'),
+    BO_TITLE = #{boTitle, jdbcType=VARCHAR},
+    BO_CN = #{boCn, jdbcType=VARCHAR},
+    BD_SE = #{bdSe, jdbcType=VARCHAR}
+WHERE
+    BO_NO = #{boNo, jdbcType=VARCHAR}
+	</update>
+	
+	<!-- 삭제 -->
+<delete id="removeNotice" parameterType="kr.ac.usu.board.vo.BoardVO">
+    DELETE FROM BOARD
+    WHERE BO_NO = #{boNo}
+</delete>
+<delete id="removeCommonNotice" parameterType="kr.ac.usu.board.vo.BoardVO">
+    DELETE FROM BOARD
+    WHERE BO_NO = #{boNo}
+</delete>
+	</mapper>

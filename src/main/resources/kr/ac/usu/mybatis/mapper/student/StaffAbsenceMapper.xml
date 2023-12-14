@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.ac.usu.student.mapper.StaffAbsenceRequestMapper">
+	
+	<resultMap type="kr.ac.usu.student.vo.AbsenceSchoolVO" id="absenceMap" autoMapping="true">
+		<id property="abssklNo" column="ABSSKL_NO"/>
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+				<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+			</association>
+		</association>
+	</resultMap>
+	
+	<resultMap type="kr.ac.usu.student.vo.SchoolRegisterVO" id="backToSchoolMap" autoMapping="true">
+		<id property="sknrgNo" column="SKNRG_NO"/>
+		<association property="student" javaType="kr.ac.usu.user.vo.StudentVO" autoMapping="true">
+			<association property="subject" javaType="kr.ac.usu.subject.vo.SubjectVO" autoMapping="true">
+				<association property="college" javaType="kr.ac.usu.facilities.vo.CollegeVO" autoMapping="true"/>
+			</association>
+		</association>
+	</resultMap>
+	
+	<sql id="absenceSearchFrag">
+		WHERE 1=1
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.stdntNo)">
+			AND STDNT_NO = #{detailCondition.stdntNo}
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.stdntNm)">
+			AND INSTR(STDNT_NM, #{detailCondition.student.stdntNm}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.subject.college.clgNo)">
+			AND INSTR(CLG_NO, #{detailCondition.student.subject.college.clgNo}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.student.sknrgSttusMajor1)">
+			AND INSTR(SUBJCT_NO, #{detailCondition.student.sknrgSttusMajor1}) > 0
+		</if>
+		<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.confmSe)">
+			AND INSTR(COM1, #{detailCondition.confmSe}) > 0
+		</if>
+	</sql>
+	
+	<sql id="absenceFromFrag">
+		SELECT
+		    absskl_no
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , f.clg_no
+            , f.clg_nm
+            , d.subjct_no
+		    , d.subjct_nm sknrg_sttus_major1
+		    , a.absskl_date
+		    , e.com_code_nm confm_se
+		    , e.com_code com1
+		FROM
+		    absence_school a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN com_code e on (a.confm_se = e.com_code)
+            INNER JOIN college f on (d.clg_no = f.clg_no)
+		WHERE 
+		    e.com_code_grp = 'SEC013'
+		ORDER BY com1, absskl_date DESC, clg_no
+	</sql>
+	
+	<sql id="backToSchoolFromFrag">
+		SELECT DISTINCT
+		    a.sknrg_no
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , f.clg_no
+            , f.clg_nm
+            , d.subjct_no
+		    , d.subjct_nm sknrg_sttus_major1
+		    , SUBSTR(a.sknrg_date,1,2) || '/' || SUBSTR(a.sknrg_date,3,2) || '/' || SUBSTR(a.sknrg_date,5,2) sknrg_date
+		    , e.com_code_nm confm_se
+		    , e.com_code com1
+		FROM
+		    school_register a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN com_code e on (a.confm_se = e.com_code)
+            INNER JOIN college f on (d.clg_no = f.clg_no)
+		WHERE
+		    a.sknrg_se = '01'
+		    AND e.com_code_grp = 'SEC013'
+		ORDER BY com1, sknrg_date DESC, clg_no
+	</sql>
+	
+	<!-- 셀렉트박스 불러오기 /////////////////////////////////////////////////////////////// -->
+	
+	<!-- 공통코드 -->
+	<select id="selectComCode" resultType="kr.ac.usu.user.vo.ComCodeVO" parameterType="string">
+		SELECT
+		    COM_CODE
+		    , COM_CODE_NM
+		FROM
+		    COM_CODE
+		WHERE
+			COM_CODE_GRP = #{comCodeGrp}
+	</select>
+	
+	<!-- 단과대, 학과 -->
+	<select id="selectCollegeList" resultType="kr.ac.usu.facilities.vo.CollegeVO">
+		SELECT
+		    CLG_NO
+		    , CLG_NM
+		FROM
+		    COLLEGE
+	</select>
+	<select id="selectSubjectList" resultType="kr.ac.usu.subject.vo.SubjectVO">
+		SELECT
+			SUBJCT_NO
+			, SUBJCT_NM
+			, CLG_NO
+		FROM
+		    SUBJECT
+	</select>
+	
+	<!-- ////////////////////////////////////////////////////////////////////////////// -->
+		
+	<!-- 휴학 신청 목록 불러오기 ////////////////////////////////////////////////////////////////////////////////////////// -->
+	<select id="selectAbsenceRequestTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="absenceFromFrag" />)
+			
+		<include refid="absenceSearchFrag" />
+	</select>
+	
+	<select id="selectAbsenceRequestList" resultMap="absenceMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="absenceFromFrag" />
+				) B
+			<include refid="absenceSearchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	<!-- //////////////////////////////////////////////////////////////////////////////////////////////////////////// -->
+	
+	<!-- 복학 신청 목록 불러오기 ////////////////////////////////////////////////////////////////////////////////////////// -->
+	<select id="selectBackToSchoolRequestTotalRecord" resultType="int" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT COUNT(*)
+		FROM
+		(<include refid="backToSchoolFromFrag" />)
+			
+		<include refid="absenceSearchFrag" />
+	</select>
+	
+	<select id="selectBackToSchoolRequestList" resultMap="backToSchoolMap" parameterType="kr.ac.usu.paging.vo.PaginationInfo">
+		SELECT A.*
+		FROM (
+			SELECT ROWNUM RNUM, B.*
+			FROM(
+				<include refid="backToSchoolFromFrag" />
+				) B
+			<include refid="absenceSearchFrag" />
+		) A
+		<![CDATA[
+	    WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+	    ]]>
+	</select>
+	<!-- //////////////////////////////////////////////////////////////////////////////////////////////////////////// -->
+	
+	<select id="selectAbsenceInfo" resultMap="absenceMap" parameterType="string">
+		SELECT
+		    a.absskl_no
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , b.stdnt_telno
+		    , d.subjct_nm sknrg_sttus_major1
+		    , e.clg_nm
+		    , c.sknrg_sttus_grade   
+		    , a.absskl_date
+		    , f.com_code_nm confm_se
+		    , a.absskl_cn
+		    , a.absskl_return
+		FROM
+		    absence_school a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN college e on (d.clg_no = e.clg_no)
+		    INNER JOIN com_code f on (a.confm_se = f.com_code)
+		WHERE
+		    a.absskl_no = #{abssklNo}
+		    AND f.com_code_grp = 'SEC013'
+	</select>
+	
+	<select id="selectBackToSchoolInfo" resultMap="backToSchoolMap" parameterType="string">
+		SELECT
+		    a.sknrg_no
+		    , a.stdnt_no
+		    , b.stdnt_nm
+		    , b.stdnt_telno
+		    , d.subjct_nm sknrg_sttus_major1
+		    , e.clg_nm
+		    , c.sknrg_sttus_grade   
+		    , f.com_code_nm confm_se
+			, SUBSTR(a.sknrg_date,1,2) || '/' || SUBSTR(a.sknrg_date,3,2) || '/' || SUBSTR(a.sknrg_date,4,2) sknrg_date
+            , a.sknrg_return
+		FROM
+		    school_register a INNER JOIN student_information b on (a.stdnt_no = b.stdnt_no)
+		    INNER JOIN school_register_status c on (a.stdnt_no = c.stdnt_no)
+		    INNER JOIN subject d on (c.sknrg_sttus_major1 = d.subjct_no)
+		    INNER JOIN college e on (d.clg_no = e.clg_no)
+		    INNER JOIN com_code f on (a.confm_se = f.com_code)
+		WHERE
+		    sknrg_no = #{sknrgNo}
+		    AND f.com_code_grp = 'SEC013'
+	</select>
+	
+	<update id="updateRefusedAbsenceInfo" parameterType="kr.ac.usu.student.vo.AbsenceSchoolVO">
+		UPDATE absence_school
+		SET
+		    absskl_return = #{abssklReturn}
+		    , confm_se = '03'
+		WHERE
+		    absskl_no = #{abssklNo}
+	</update>
+	
+	<update id="updateRefusedBackToSchoolInfo" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		UPDATE school_register
+		SET
+		    sknrg_return = #{sknrgReturn}
+		    , confm_se = '03'
+		WHERE
+		     sknrg_no = #{sknrgNo}
+	</update>
+	
+	<update id="updateAppliedAbsenceInfo" parameterType="kr.ac.usu.student.vo.AbsenceSchoolVO">
+		UPDATE absence_school
+		SET
+		    confm_se = '02'
+		WHERE
+		    absskl_no = #{abssklNo}
+	</update>
+	
+	<update id="updateAppliedBackToSchoolInfo" parameterType="kr.ac.usu.student.vo.SchoolRegisterVO">
+		UPDATE school_register
+		SET
+		   confm_se = '02'
+		WHERE
+		     sknrg_no = #{sknrgNo}
+	</update>
+	
+	<insert id="insertAppliedAbsenceInfo" parameterType="kr.ac.usu.student.vo.SchoolRegisterHistoryVO">
+		INSERT INTO school_register_history (
+		    semstr_no
+		    , stdnt_no
+		    , sknrg_hist_date
+		    , sknrgs_se
+		) VALUES (
+		    (
+		        SELECT
+		          CASE
+		            WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 1 AND 6 THEN TO_CHAR(SYSDATE, 'YYYY') || '2'
+		            WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 7 AND 12 THEN TO_CHAR(ADD_MONTHS(SYSDATE, 12), 'YYYY') || '1'
+		          END AS formatted_result
+		        FROM dual
+		    )
+		    , #{stdntNo}
+		    , (
+		        SELECT TO_CHAR(SYSDATE, 'YYMMDD') AS formatted_date
+		        FROM dual
+		    )
+		    , '02'
+		)
+	</insert>
+	
+	<insert id="insertAppliedBackToSchoolInfo" parameterType="kr.ac.usu.student.vo.SchoolRegisterHistoryVO">
+		INSERT INTO school_register_history (
+		    semstr_no
+		    , stdnt_no
+		    , sknrg_hist_date
+		    , sknrgs_se
+		) VALUES (
+		    (
+		        SELECT
+		          CASE
+		            WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 1 AND 6 THEN TO_CHAR(SYSDATE, 'YYYY') || '2'
+		            WHEN TO_NUMBER(TO_CHAR(SYSDATE, 'MM')) BETWEEN 7 AND 12 THEN TO_CHAR(ADD_MONTHS(SYSDATE, 12), 'YYYY') || '1'
+		          END AS formatted_result
+		        FROM dual
+		    )
+		    , #{stdntNo}
+		    , (
+		        SELECT TO_CHAR(SYSDATE, 'YYMMDD') AS formatted_date
+		        FROM dual
+		    )
+		    , '01'
+		)
+	</insert>
+	
+	
+</mapper>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
