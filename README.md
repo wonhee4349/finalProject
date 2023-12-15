@@ -18,7 +18,9 @@
 <h2>Summary</h2>
 <details>
 <summary>
-  USU 학사관리시스템
+  USU 학사관리시스템<br>
+  USU는 기존에 흩어져 있던 업무적 연계 프로그램 (LMS, LCMS, 클래스룸)을 하나의 시스템에서 이용 가능하게 하여 효율성을 높이고 편리하게 사용하는 것을 목적으로 한 프로젝트입니다.
+  
 </summary>
 </details>
 
